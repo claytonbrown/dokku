@@ -8,7 +8,7 @@ Dokku is an extensible, open source Platform as a Service that runs on a single 
 
 To start using Dokku, you'll need a system that meets the following minimum requirements:
 
-- Operating Systems: [Ubuntu 22.04/24.04](https://www.ubuntu.com/download) or [Debian 11+ x64](https://www.debian.org/distrib/)
+- Operating Systems: [Ubuntu 22.04/24.04/26.04](https://www.ubuntu.com/download) or [Debian 11+ x64](https://www.debian.org/distrib/)
 - Supported Architectures: `AMD64` (`x86_64`) and `arm64` (`armv8`)
 - Minimum Memory:
     - Docker Scheduler: 1GB of system memory, or [add swap memory](/docs/getting-started/advanced-installation.md#vms-with-less-than-1-gb-of-memory)
@@ -31,8 +31,8 @@ To install the latest stable version of Dokku, you can run the following shell c
 
 ```shell
 # for debian systems, installs Dokku via apt-get
-wget -NP . https://dokku.com/install/v0.38.28/bootstrap.sh
-sudo DOKKU_TAG=v0.38.28 bash bootstrap.sh
+wget -NP . https://dokku.com/install/v0.38.31/bootstrap.sh
+sudo DOKKU_TAG=v0.38.31 bash bootstrap.sh
 ```
 
 The installation process takes about 5-10 minutes, depending upon internet connection speed.

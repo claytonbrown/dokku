@@ -25,7 +25,7 @@ scheduler-k3s:labels:report [<app>|--global] [--format stdout|json] [--process-t
 scheduler-k3s:node-sysctls:clear [--global|--profile PROFILE] # Clear all node-level kernel sysctls for unprofiled nodes or a single node profile
 scheduler-k3s:node-sysctls:set <sysctl> (<value>) [--global|--profile PROFILE] # Set or clear a node-level kernel sysctl for unprofiled nodes or a single node profile
 scheduler-k3s:node-sysctls:set --replace <sysctl=value> [<sysctl=value> ...] [--global|--profile PROFILE] # Replace the entire node-level kernel sysctl map for unprofiled nodes or a single node profile
-scheduler-k3s:node-sysctls:report [--format stdout|json] # Displays the node-level kernel sysctls applied to each scope
+scheduler-k3s:node-sysctls:report [--format stdout|json] [--stored] [--global|--profile PROFILE] # Displays the node-level kernel sysctls for each scope
 scheduler-k3s:preview <app> [--context N] [--show-secrets] [--show-secrets-decoded] # Displays a diff between the current and next deployment for an app
 scheduler-k3s:profiles:add <profile> [--role ROLE] [--insecure-allow-unknown-hosts] [--taint-scheduling] [--kubelet-args KUBELET_ARGS] # Adds a node profile to the k3s cluster
 scheduler-k3s:profiles:list [--format json|stdout] # Lists all node profiles in the k3s cluster
@@ -1008,14 +1008,49 @@ dokku scheduler-k3s:node-sysctls:clear --profile edge-workers
 
 Clearing a scope removes its DaemonSet. As with clearing a single sysctl, the values it last wrote stay in place on affected nodes until they reboot.
 
-Use `node-sysctls:report` to see the resolved set for every scope.
+Use `node-sysctls:report` to see the resolved set every scope's DaemonSet applies. A profile's entry therefore includes everything it inherits from the global scope.
 
 ```shell
 dokku scheduler-k3s:node-sysctls:report
 ```
 
+```
+scope         sysctl                value
+--global      vm.overcommit_memory  1
+--global      vm.swappiness         20
+edge-workers  vm.overcommit_memory  1
+edge-workers  vm.swappiness         60
+```
+
 ```shell
 dokku scheduler-k3s:node-sysctls:report --format json
+```
+
+Because that report resolves each scope, a profile's entry does not distinguish a sysctl the profile sets itself from one it inherits. To report only the map each scope stores - the map its own `node-sysctls:set` and `node-sysctls:clear` calls write - add the `--stored` flag:
+
+```shell
+dokku scheduler-k3s:node-sysctls:report --stored
+```
+
+```
+scope         sysctl                value
+--global      vm.overcommit_memory  1
+--global      vm.swappiness         20
+edge-workers  vm.swappiness         60
+```
+
+The global scope stores exactly what it applies, so `--stored` reports the same thing for `--global` either way.
+
+A configuration tool holding a declared map for a scope should compare it against `--stored`. Comparing against the resolved set never converges a profile, since a profile that stores nothing of its own still reports every globally-set sysctl.
+
+The report covers every scope unless `--global` or `--profile` narrows it to one, the same way those flags scope `node-sysctls:set` and `node-sysctls:clear`. Only one of the two may be given.
+
+```shell
+dokku scheduler-k3s:node-sysctls:report --stored --profile edge-workers --format json
+```
+
+```json
+{"edge-workers":{"vm.swappiness":"60"}}
 ```
 
 The DaemonSet pulls `busybox` and `registry.k8s.io/pause` by default. On an air-gapped cluster or one behind a registry mirror, point them elsewhere:
@@ -1158,6 +1193,8 @@ git push dokku master
 
 For a hostPath-backed PV (no StorageClass), pass `<path>` as the second positional argument and omit `--storage-class-name`. The plugin renders both the PV and the PVC into the entry's helm release. The `--reclaim-policy` flag (`Retain` or `Delete`) controls whether the underlying PV survives `storage:destroy`. Annotations and labels set via `storage:annotations:set` and `storage:labels:set` propagate to both the PVC and the PV so backup tools (Velero, Longhorn snapshots) can find them.
 
+`storage:mount --process-type <proc>` scopes a volume to a single process type, so only that deployment's pods mount the PVC; a mount left in the default `_default_` scope is mounted by every deployment. Cron jobs are keyed by a generated cron ID rather than a Procfile process type, so they mount default-scoped volumes only. Only deploy-phase attachments are mounted on k3s - `--phase run` has no effect here.
+
 The legacy `storage:mount <app> <host>:<container>` colon form is rejected on k3s apps; create a named entry instead. See [Persistent Storage](/docs/advanced-usage/persistent-storage.md) for the full command reference.
 
 ### Chart upgrade callbacks
@@ -1285,8 +1322,8 @@ If unspecified for any task, the default reservation will be `.1` CPU and `128Mi
 | `letsencrypt-server` | app + global | `prod` | `--scheduler-k3s-letsencrypt-server`, `--scheduler-k3s-global-letsencrypt-server`, `--scheduler-k3s-computed-letsencrypt-server` | ACME directory (`prod` or `staging`) used for app certificates, or `false` to disable all automatic certificate issuance |
 | `namespace` | app + global | `default` | `--scheduler-k3s-namespace`, `--scheduler-k3s-global-namespace`, `--scheduler-k3s-computed-namespace` | Kubernetes namespace into which the app's resources are installed |
 | `network-interface` | global only | `eth0` | `--scheduler-k3s-global-network-interface`, `--scheduler-k3s-computed-network-interface` | Host network interface used by k3s |
-| `node-sysctls-image` | global only | `busybox:1.36` | `--scheduler-k3s-global-node-sysctls-image` | Image used to apply node-level sysctls, override for air-gapped clusters |
-| `node-sysctls-pause-image` | global only | `registry.k8s.io/pause:3.9` | `--scheduler-k3s-global-node-sysctls-pause-image` | Image keeping the node sysctls daemonset pods running |
+| `node-sysctls-image` | global only | `busybox:1.36` | `--scheduler-k3s-global-node-sysctls-image`, `--scheduler-k3s-computed-node-sysctls-image` | Image used to apply node-level sysctls, override for air-gapped clusters |
+| `node-sysctls-pause-image` | global only | `registry.k8s.io/pause:3.9` | `--scheduler-k3s-global-node-sysctls-pause-image`, `--scheduler-k3s-computed-node-sysctls-pause-image` | Image keeping the node sysctls daemonset pods running |
 | `rollback-on-failure` | app + global | `false` | `--scheduler-k3s-rollback-on-failure`, `--scheduler-k3s-global-rollback-on-failure`, `--scheduler-k3s-computed-rollback-on-failure` | When `true`, helm rolls back the release if a deploy fails |
 | `shm-size` | app + global | none | `--scheduler-k3s-shm-size`, `--scheduler-k3s-global-shm-size`, `--scheduler-k3s-computed-shm-size` | `/dev/shm` size override applied to app containers |
 | `token` | global only | none | `--scheduler-k3s-global-token` (masked as `*******` in default stdout output; the raw value is returned when queried via `--format json` or when this flag is requested explicitly) | Cluster join token used by `scheduler-k3s:cluster-add` |

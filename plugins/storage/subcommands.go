@@ -152,8 +152,9 @@ func isUserNamespacesEnabled() (bool, error) {
 // when the second argument is a named entry rather than a colon-form path.
 //
 // Replace and Specs drive the whole-set form, where the positional arguments
-// are mount specs rather than a single entry and the remaining mount-time
-// fields scope every spec in the call.
+// are mount specs carrying their own mount-time fields. Only ProcessType
+// scopes that call; every other mount-time field is rejected with Replace so
+// each one has exactly one spelling.
 type CommandMountInput struct {
 	AppName       string
 	NameOrPath    string
@@ -252,34 +253,6 @@ func CommandMount(input CommandMountInput) error {
 	return nil
 }
 
-// mountSpec is one parsed positional argument of the storage:mount --replace
-// form. It names an entry and the container path to bind it at, plus the
-// mount-time fields the colon form can express on its own.
-type mountSpec struct {
-	EntryName     string
-	ContainerPath string
-	Readonly      bool
-	VolumeOptions string
-}
-
-// parseMountSpec splits an "<entry>:<container-dir>[:<options>]" argument.
-// ParseMountPath already implements that grammar - including hoisting the "ro"
-// token out of the options list - so the only difference here is that the first
-// field names a storage entry rather than a host path.
-func parseMountSpec(spec string) (mountSpec, error) {
-	parsed := ParseMountPath(spec)
-	if parsed.HostPath == "" || parsed.ContainerPath == "" {
-		return mountSpec{}, fmt.Errorf("Invalid mount specified: %s", spec)
-	}
-
-	return mountSpec{
-		EntryName:     parsed.HostPath,
-		ContainerPath: parsed.ContainerPath,
-		Readonly:      parsed.Readonly,
-		VolumeOptions: parsed.VolumeOptions,
-	}, nil
-}
-
 // resolveMountSpecEntry maps a parsed spec onto the storage entry it names.
 //
 // The single-mount form tells a named entry from a colon-form host path by the
@@ -320,17 +293,6 @@ func resolveMountSpecEntry(appName string, appScheduler string, spec string, par
 	return entry, false, nil
 }
 
-// attachmentProcessType returns the process type an attachment is scoped to,
-// treating an unset value as the default scope so attachments written before
-// the field existed still sort into a scope.
-func attachmentProcessType(attachment *Attachment) string {
-	if attachment.ProcessType == "" {
-		return DefaultProcessType
-	}
-
-	return attachment.ProcessType
-}
-
 // replaceMounts swaps one process type's entire mount set for the declared one
 // in a single write, so a caller converging an app onto a declared set no
 // longer issues one storage:mount or storage:unmount per difference and can no
@@ -340,22 +302,38 @@ func attachmentProcessType(attachment *Attachment) string {
 // spec leaves the stored set untouched. Attachments belonging to other process
 // types are kept: an omitted --process-type scopes the replacement to
 // _default_ the same way it scopes a single storage:mount.
+//
+// Every other mount-time field comes from the spec that declares it rather
+// than from a call-level flag, so one call can vary them between mounts.
 func replaceMounts(input CommandMountInput) error {
 	if input.ContainerDir != "" {
 		return errors.New("The --container-dir flag cannot be used with --replace")
 	}
 
+	// Each mount-time field has exactly one spelling in this form, the token
+	// in the spec that declares it, rather than a call-level default a token
+	// overrides. A flag is taken as passed when it holds anything but its
+	// zero value, which is what pflag leaves behind when it is absent; the
+	// values that slip through - an empty string or an explicit false - ask
+	// for what an omitted flag already gives.
+	for _, conflict := range []struct {
+		flag string
+		set  bool
+		hint string
+	}{
+		{"--phase", len(input.Phases) > 0, mountSpecKeyPhase + "=" + PhaseDeploy},
+		{"--volume-subpath", input.Subpath != "", mountSpecKeySubpath + "=<path>"},
+		{"--volume-readonly", input.Readonly, "ro"},
+		{"--volume-chown", input.VolumeChown != "", mountSpecKeyVolumeChown + "=<option>"},
+		{"--volume-options", input.VolumeOptions != "", "the option as a bare token"},
+	} {
+		if conflict.set {
+			return fmt.Errorf("The %s flag cannot be used with --replace; set %s in the mount spec instead", conflict.flag, conflict.hint)
+		}
+	}
+
 	if len(input.Specs) == 0 {
 		return errors.New("Must specify at least one mount, use storage:unmount --all to remove all mounts")
-	}
-
-	if err := ValidateChownOption(input.VolumeChown); err != nil {
-		return err
-	}
-
-	phases := input.Phases
-	if len(phases) == 0 {
-		phases = []string{PhaseDeploy, PhaseRun}
 	}
 
 	processType := input.ProcessType
@@ -389,12 +367,12 @@ func replaceMounts(input CommandMountInput) error {
 		attachment := &Attachment{
 			EntryName:     entry.Name,
 			ContainerPath: parsed.ContainerPath,
-			Phases:        phases,
+			Phases:        parsed.Phases,
 			ProcessType:   processType,
-			Subpath:       input.Subpath,
-			Readonly:      input.Readonly || parsed.Readonly,
+			Subpath:       parsed.Subpath,
+			Readonly:      parsed.Readonly,
 			VolumeOptions: parsed.VolumeOptions,
-			VolumeChown:   input.VolumeChown,
+			VolumeChown:   parsed.VolumeChown,
 		}
 		if err := attachment.Validate(); err != nil {
 			return err
@@ -417,13 +395,24 @@ func replaceMounts(input CommandMountInput) error {
 		return err
 	}
 
-	attachments := []*Attachment{}
+	retained := []*Attachment{}
 	for _, attachment := range existing {
-		if attachmentProcessType(attachment) != processType {
-			attachments = append(attachments, attachment)
+		if attachment.EffectiveProcessType() != processType {
+			retained = append(retained, attachment)
 		}
 	}
-	attachments = append(attachments, declared...)
+
+	// The declared set is already unique on container path within its own
+	// scope; what is left to check is the scopes this call does not replace,
+	// so a declared path cannot collide with one held by another process type.
+	// Checking before the write keeps the all-or-nothing contract.
+	for _, attachment := range declared {
+		if err := ensureContainerPathFree(input.AppName, retained, attachment); err != nil {
+			return err
+		}
+	}
+
+	attachments := append(retained, declared...)
 
 	if err := SaveAttachments(input.AppName, attachments); err != nil {
 		return err
@@ -578,7 +567,7 @@ func unmountAll(input CommandUnmountInput) error {
 
 	keep := []*Attachment{}
 	for _, attachment := range attachments {
-		if attachmentProcessType(attachment) != input.ProcessType {
+		if attachment.EffectiveProcessType() != input.ProcessType {
 			keep = append(keep, attachment)
 		}
 	}
