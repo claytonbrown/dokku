@@ -24,8 +24,10 @@ Additional commands:`
     scheduler-k3s:autoscaling-auth:set <app|--global> <trigger> [<--metadata key=value>...], Set or clear a scheduler-k3s autoscaling keda trigger authentication resource for an app
     scheduler-k3s:autoscaling-auth:set --replace <app|--global> <trigger> <--metadata key=value> [<--metadata key=value>...], Replace the entire metadata map for a scheduler-k3s autoscaling keda trigger authentication resource
     scheduler-k3s:autoscaling-auth:report [<app>|--global] [--format stdout|json] [--include-metadata], Displays a scheduler-k3s autoscaling auth report for one or more apps
+    scheduler-k3s:charts:clear <chart>, Clear all chart-specific helm values for a chart
     scheduler-k3s:charts:report [<chart>] [--format stdout|json], Displays a scheduler-k3s chart override report
     scheduler-k3s:charts:set <chart-name.property> (<value>), Set or clear a chart-specific helm value
+    scheduler-k3s:charts:set --replace <chart> <property=value> [<property=value> ...], Replace the entire helm value override map for a chart
     scheduler-k3s:cluster:add [--profile PROFILE] [--role ROLE] [--insecure-allow-unknown-hosts] [--server-ip SERVER_IP] [--taint-scheduling] [--kubelet-args KUBELET_ARGS] <ssh://user@host:port>, Adds a server node to a Dokku-managed cluster
     scheduler-k3s:cluster:list [--format json|stdout], Lists all nodes in a Dokku-managed cluster
     scheduler-k3s:cluster:remove [node-id], Removes client node to a Dokku-managed cluster
@@ -38,7 +40,7 @@ Additional commands:`
     scheduler-k3s:node-sysctls:clear [--global|--profile PROFILE], Clear all node-level kernel sysctls for unprofiled nodes or a single node profile
     scheduler-k3s:node-sysctls:set <sysctl> (<value>) [--global|--profile PROFILE], Set or clear a node-level kernel sysctl for unprofiled nodes or a single node profile
     scheduler-k3s:node-sysctls:set --replace <sysctl=value> [<sysctl=value> ...] [--global|--profile PROFILE], Replace the entire node-level kernel sysctl map for unprofiled nodes or a single node profile
-    scheduler-k3s:node-sysctls:report [--format stdout|json], Displays the node-level kernel sysctls applied to each scope
+    scheduler-k3s:node-sysctls:report [--format stdout|json] [--stored] [--global|--profile PROFILE], Displays the node-level kernel sysctls for each scope
     scheduler-k3s:preview <app> [--context N] [--show-secrets] [--show-secrets-decoded], Displays a diff between the current and next deployment for an app
     scheduler-k3s:profiles:add <profile> [--role ROLE] [--insecure-allow-unknown-hosts] [--taint-scheduling] [--kubelet-args KUBELET_ARGS], Adds a node profile to the k3s cluster
     scheduler-k3s:profiles:list [--format json|stdout], Lists all node profiles in the k3s cluster

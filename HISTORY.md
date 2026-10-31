@@ -1,5 +1,262 @@
 # History
 
+## 0.38.34
+
+Install/update via the bootstrap script:
+
+```shell
+wget -NP . https://dokku.com/install/v0.38.34/bootstrap.sh
+sudo DOKKU_TAG=v0.38.34 bash bootstrap.sh
+```
+
+### Bug Fixes
+
+- #9223: @josegonzalez Attach every network in attach-post-create
+
+### New Features
+
+- #9225: @josegonzalez Add --no-cache flag to ps:rebuild
+
+## 0.38.33
+
+Install/update via the bootstrap script:
+
+```shell
+wget -NP . https://dokku.com/install/v0.38.33/bootstrap.sh
+sudo DOKKU_TAG=v0.38.33 bash bootstrap.sh
+```
+
+### Bug Fixes
+
+- #9221: @fatihesergg Add missing wget dependency to Makefile for source installs
+
+### Documentation
+
+- #9212: @zackfern Delimit passed flags in dockerfile-start-cmd example with a double-dash
+
+### Tests
+
+- #9215: @josegonzalez chore(deps): drop unused packages from dockerfile-release lock
+- #9214: @dependabot[bot] chore(deps): bump body-parser from 2.3.0 to 2.4.0 in /tests/apps/checks-root in the npm_and_yarn group across 1 directory
+- #9206: @dependabot[bot] chore(deps): bump ruby from 4.0.7 to 4.0.9 in /tests/apps/dockerfile-entrypoint
+- #9203: @dependabot[bot] chore(deps): bump sass from 1.106.0 to 1.106.1 in /tests/apps/multi
+- #9197: @dependabot[bot] chore(deps): bump golang from 1.27.2 to 1.27.3 in /tests/apps/gogrpc
+- #9193: @dependabot[bot] chore(deps): bump golang from 1.27.2 to 1.27.3 in /tests/apps/go-fail-postdeploy
+- #9195: @dependabot[bot] chore(deps): bump golang from 1.27.2 to 1.27.3 in /tests/apps/go-fail-predeploy
+- #9194: @dependabot[bot] chore(deps): bump golang from 1.27.2 to 1.27.3 in /tests/apps/zombies-dockerfile-no-tini
+- #9192: @dependabot[bot] chore(deps): bump golang from 1.27.2 to 1.27.3 in /tests/apps/zombies-dockerfile-tini
+- #9191: @dependabot[bot] chore(deps-dev): bump heroku/heroku-buildpack-php from 298 to 299 in /tests/apps/php
+
+### Dependencies
+
+- #9220: @dokku-bot chore: bump dokku-update to 0.11.0
+- #9216: @josegonzalez chore(deps): upgrade go-jose to 4.1.6
+- #9210: @dependabot[bot] chore(deps): bump github.com/fluxcd/pkg/kustomize in /plugins/scheduler-k3s
+- #9209: @dependabot[bot] chore(deps): bump mkdocs-material from 9.7.7 to 9.8.0 in /docs/_build
+- #9208: @dependabot[bot] chore(deps): bump importlib-metadata from 9.0.1 to 10.1.0 in /docs/_build
+- #9207: @dependabot[bot] chore(deps): bump dokku/openresty-docker-proxy from 0.13.0 to 0.13.1 in /plugins/openresty-vhosts
+- #9204: @dependabot[bot] chore(deps): bump github.com/cert-manager/cert-manager in /plugins/scheduler-k3s
+- #9199: @dependabot[bot] chore(deps): bump traefik from v3.7.15 to v3.7.16 in /plugins/traefik-vhosts
+- #9202: @dependabot[bot] chore(deps): bump soupsieve from 3.0.3 to 3.0.4 in /docs/_build
+- #9201: @dependabot[bot] chore(deps): bump zipp from 4.1.1 to 4.1.2 in /docs/_build
+- #9198: @dependabot[bot] chore(deps): bump python-dateutil from 2.9.0.post0 to 3.0.0 in /docs/_build
+
+## 0.38.32
+
+Install/update via the bootstrap script:
+
+```shell
+wget -NP . https://dokku.com/install/v0.38.32/bootstrap.sh
+sudo DOKKU_TAG=v0.38.32 bash bootstrap.sh
+```
+
+### Bug Fixes
+
+- #9189: @josegonzalez Release deploy locks on exit and honor apps:lock
+- #9128: @sean0407 Forward forced cleanup flag (#9127)
+- #9182: @josegonzalez Read alternate image tags from the retired container
+- #9180: @josegonzalez Clean up stale extracted files on deploy
+- #9176: @byjg Haproxy letsencrypt integration and upgrade EasyHAProxy to 6.5.1
+- #9175: @josegonzalez Only clear the requested resource type
+- #9172: @josegonzalez Serialize concurrent property updates
+- #9169: @josegonzalez Accept all docker memory units in resource values
+- #9129: @josegonzalez Respect DOKKU_LIB_HOST_ROOT for storage bind mounts
+- #9130: @josegonzalez Preserve arguments such as --version and -n when running commands over SSH
+- #9148: @josegonzalez Do not retire an image that another app uses as its source image
+- #9131: @josegonzalez Keep the git source-image property in sync and harden the deploy lock
+- #9102: @josegonzalez Allow enabling nginx-vhosts when skipped at install
+
+### New Features
+
+- #9190: @josegonzalez Add a whole-set form and clear for chart overrides
+- #9152: @Schlepptop Make nginx-proxy-http-version configurable per app or globally
+- #9104: @josegonzalez Allow cron-entries to set a per-entry MAILTO
+
+### Documentation
+
+- #9132: @SatvikMishra08 Fix broken internal anchors and links
+- #9119: @fmtappendf Fix some typos in comment
+- #9116: @cevheri Add LibreDB Studio plugin to community plugin list
+
+### Tests
+
+- #9186: @dependabot[bot] chore(deps): bump sass from 1.105.2 to 1.106.0 in /tests/apps/multi
+- #9187: @dependabot[bot] chore(deps-dev): bump heroku/heroku-buildpack-php from 297 to 298 in /tests/apps/php
+- #9181: @josegonzalez Pause the retire timer during source image test
+- #9170: @josegonzalez Fix pre-existing gofmt and markdown lint issues
+- #9155: @dependabot[bot] chore(deps): bump golang from 1.27.1 to 1.27.2 in /tests/apps/zombies-dockerfile-no-tini
+- #9163: @dependabot[bot] chore(deps): bump sass from 1.105.1 to 1.105.2 in /tests/apps/multi
+- #9161: @dependabot[bot] chore(deps): bump golang from 1.27.1 to 1.27.2 in /tests/apps/gogrpc
+- #9160: @dependabot[bot] chore(deps): bump golang from 1.27.1 to 1.27.2 in /tests/apps/go-fail-predeploy
+- #9159: @dependabot[bot] chore(deps): bump golang from 1.27.1 to 1.27.2 in /tests/apps/zombies-dockerfile-tini
+- #9158: @dependabot[bot] chore(deps): bump golang from 1.27.1 to 1.27.2 in /tests/apps/go-fail-postdeploy
+- #9150: @dependabot[bot] chore(deps): bump python from 3.15.0rc3-bookworm to 3.15.0-bookworm in /tests/apps/dockerfile-release
+- #9145: @dependabot[bot] chore(deps): bump djangorestframework from 3.18.1 to 3.18.3 in /tests/apps/dockerfile-release
+- #9144: @dependabot[bot] chore(deps): bump express from 5.2.1 to 5.3.0 in /tests/apps/nodejs-express-noprocfile
+- #9143: @dependabot[bot] chore(deps): bump express from 5.2.1 to 5.3.0 in /tests/apps/nodejs-express-noappjson
+- #9141: @dependabot[bot] chore(deps): bump express from 5.2.1 to 5.3.0 in /tests/apps/nodejs-express
+- #9140: @dependabot[bot] chore(deps): bump express from 5.2.1 to 5.3.0 in /tests/apps/gitsubmodules
+- #9139: @dependabot[bot] chore(deps): bump python from 3.15.0rc2-bookworm to 3.15.0rc3-bookworm in /tests/apps/dockerfile-release
+- #9138: @dependabot[bot] chore(deps): bump express from 5.2.1 to 5.3.0 in /tests/apps/dockerfile-procfile-bad
+- #9135: @dependabot[bot] chore(deps): bump express from 5.2.1 to 5.3.0 in /tests/apps/checks-root
+- #9134: @dependabot[bot] chore(deps): bump express from 5.2.1 to 5.3.0 in /tests/apps/dockerfile-procfile
+- #9133: @dependabot[bot] chore(deps): bump express from 5.2.1 to 5.3.0 in /tests/apps/dockerfile-app-json-formations
+- #9115: @dependabot[bot] chore(deps): bump django from 5.2.17 to 5.2.18 in /tests/apps/dockerfile-release
+- #9113: @dependabot[bot] chore(deps): bump source-map-js from 1.2.1 to 1.2.2 in /tests/apps/multi in the npm_and_yarn group across 1 directory
+- #9112: @dependabot[bot] chore(deps): bump proxy-addr from 2.0.7 to 2.0.8 in /tests/apps/checks-root in the npm_and_yarn group across 1 directory
+- #9110: @dependabot[bot] chore(deps): bump sass from 1.105.0 to 1.105.1 in /tests/apps/multi
+- #9109: @dependabot[bot] chore(deps): bump monolog/monolog from 3.12.0 to 3.12.1 in /tests/apps/php
+- #9106: @dependabot[bot] chore(deps): bump werkzeug from 3.1.8 to 3.1.9 in /tests/apps/python-flask
+- #9091: @dependabot[bot] chore(deps): bump sass from 1.104.1 to 1.105.0 in /tests/apps/multi
+- #9086: @dependabot[bot] chore(deps-dev): bump heroku/heroku-buildpack-php from 295 to 297 in /tests/apps/php
+
+### Dependencies
+
+- #9184: @josegonzalez chore: group kubernetes dependency updates
+- #9183: @dokku-bot chore: bump herokuish to 0.11.21
+- #9177: @dependabot[bot] chore(deps): bump timberio/vector from 0.59.0-debian to 0.60.0-debian in /plugins/logs
+- #9179: @dependabot[bot] chore(deps): bump github.com/traefik/traefik/v2 in /plugins/scheduler-k3s
+- #9178: @dependabot[bot] chore(deps): update markdown requirement from <3.12,>=3.11.1 to >=3.11.2,<3.12 in /docs/_build
+- #9173: @dokku-bot chore: bump herokuish to 0.11.20
+- #9174: @dokku-bot chore: bump pack to 0.40.10
+- #9164: @dependabot[bot] chore(deps): bump github.com/fluxcd/pkg/kustomize in /plugins/scheduler-k3s
+- #9166: @dependabot[bot] chore(deps): bump helm.sh/helm/v3 in /plugins/scheduler-k3s
+- #9157: @dependabot[bot] chore(deps): update markdown requirement from <3.12,>=3.11 to >=3.11.1,<3.12 in /docs/_build
+- #9156: @dependabot[bot] chore(deps): bump pymdown-extensions from 12.2 to 12.3 in /docs/_build
+- #9167: @dependabot[bot] chore(deps): bump python from 3.15.0rc3-alpine to 3.16.0a1-alpine in /docs/_build
+- #9165: @dependabot[bot] chore(deps): bump github.com/traefik/traefik/v2 in /plugins/scheduler-k3s
+- #9162: @dependabot[bot] chore(deps): bump traefik from v3.7.14 to v3.7.15 in /plugins/traefik-vhosts
+- #9149: @dependabot[bot] chore(deps): bump soupsieve from 2.10 to 3.0.3 in /docs/_build
+- #9146: @dependabot[bot] chore(deps): bump golang.org/x/crypto in /plugins/common
+- #9142: @dependabot[bot] chore(deps): bump pymdown-extensions from 12.1 to 12.2 in /docs/_build
+- #9137: @dependabot[bot] chore(deps): bump traefik from v3.7.13 to v3.7.14 in /plugins/traefik-vhosts
+- #9136: @dependabot[bot] chore(deps): bump timberio/vector from 0.58.0-debian to 0.59.0-debian in /plugins/logs
+- #9125: @dokku-bot chore: bump herokuish to 0.11.19
+- #9123: @dependabot[bot] chore(deps): bump python from 3.15.0rc2-alpine to 3.15.0rc3-alpine in /docs/_build
+- #9124: @dependabot[bot] chore(deps): bump golang.org/x/sync in /plugins/common
+- #9121: @dependabot[bot] chore(deps): bump github.com/traefik/traefik/v2 in /plugins/scheduler-k3s
+- #9118: @dependabot[bot] chore(deps): bump zipp from 4.1.0 to 4.1.1 in /docs/_build
+- #9114: @dependabot[bot] chore(deps): bump markupsafe from 3.0.3 to 3.0.4 in /docs/_build
+- #9111: @dependabot[bot] chore(deps): bump sigs.k8s.io/kustomize/api in /plugins/scheduler-k3s
+- #9099: @dependabot[bot] chore(deps): bump k8s.io/kubernetes in /plugins/scheduler-k3s
+- #9098: @dependabot[bot] chore(deps): bump k8s.io/kubectl in /plugins/scheduler-k3s
+- #9094: @dependabot[bot] chore(deps): bump github.com/kedacore/keda/v2 in /plugins/scheduler-k3s
+- #9090: @dependabot[bot] chore(deps): bump soupsieve from 2.9.2 to 2.10 in /docs/_build
+- #9093: @dependabot[bot] chore(deps): bump github.com/go-openapi/jsonpointer in /plugins/scheduler-k3s
+- #9101: @dependabot[bot] chore(deps): bump dokku/openresty-docker-proxy from 0.12.1 to 0.13.0 in /plugins/openresty-vhosts
+- #9092: @dependabot[bot] chore(deps): bump github.com/onsi/gomega in /plugins/buildpacks
+- #9100: @dokku-bot chore: bump herokuish to 0.11.18
+- #9097: @dependabot[bot] chore(deps): bump k8s.io/client-go in /plugins/scheduler-k3s
+- #9089: @dependabot[bot] chore(deps): bump pymdown-extensions from 12.0.1 to 12.1 in /docs/_build
+- #9088: @dependabot[bot] chore(deps): update markdown requirement from <3.11,>=3.10.3 to >=3.11,<3.12 in /docs/_build
+
+## 0.38.31
+
+Install/update via the bootstrap script:
+
+```shell
+wget -NP . https://dokku.com/install/v0.38.31/bootstrap.sh
+sudo DOKKU_TAG=v0.38.31 bash bootstrap.sh
+```
+
+### Bug Fixes
+
+- #9084: @josegonzalez Report stored node-sysctls images globally
+- #9082: @josegonzalez Verify existing apps in git commands
+- #9081: @josegonzalez Validate run:logs arguments
+- #9080: @josegonzalez Check app directory when creating a new app
+- #9079: @josegonzalez Validate app name in app-scoped commands
+- #9077: @josegonzalez Respect quoting in procfile commands and remove support for bare shell operators
+- #9076: @josegonzalez Validate app.json healthcheck path and scheme
+
+### Dependencies
+
+- #9078: @dependabot[bot] chore(deps): bump pyparsing from 3.3.2 to 3.3.3 in /docs/_build
+
+## 0.38.30
+
+Install/update via the bootstrap script:
+
+```shell
+wget -NP . https://dokku.com/install/v0.38.30/bootstrap.sh
+sudo DOKKU_TAG=v0.38.30 bash bootstrap.sh
+```
+
+### New Features
+
+- #9074: @josegonzalez Allow storage:mount --replace to vary fields per mount
+- #9075: @josegonzalez Report each node-sysctls scope's stored map
+
+### Tests
+
+- #9071: @dependabot[bot] chore(deps): bump google.golang.org/grpc from 1.83.2 to 1.84.0 in /tests/apps/gogrpc
+
+## 0.38.29
+
+Install/update via the bootstrap script:
+
+```shell
+wget -NP . https://dokku.com/install/v0.38.29/bootstrap.sh
+sudo DOKKU_TAG=v0.38.29 bash bootstrap.sh
+```
+
+### Bug Fixes
+
+- #9060: @josegonzalez Preserve global flags when sudo is sudo-rs
+- #9055: @josegonzalez Validate nginx templates as the running nginx user
+- #9054: @josegonzalez Honor the pinned chart version when upgrading
+- #9049: @josegonzalez Report config write failures instead of exiting 0
+- #9050: @josegonzalez Reject negative process counts when scaling
+
+### New Features
+
+- #9058: @josegonzalez Add a whole-set form for an app's storage mounts
+- #9057: @josegonzalez Add a way to read back registry login state
+- #9051: @josegonzalez Add a whole-set form for scheduler-k3s metadata
+
+### Documentation
+
+- #9070: @s01ipsist Document Ubuntu 26.04 as a supported installation target
+
+### Tests
+
+- #9062: @josegonzalez Pass force to the datastore command that owns it
+- #9061: @josegonzalez Call the datastore create command the way it is documented
+
+### Dependencies
+
+- #9064: @dependabot[bot] chore: group gomod dependabot updates across all plugins
+- #9066: @dependabot[bot] chore(deps): bump github.com/onsi/gomega from 1.43.0 to 1.43.1 in /plugins/buildpacks
+- #9067: @dependabot[bot] chore(deps): bump github.com/fluxcd/pkg/kustomize from 1.40.0 to 1.41.0 in /plugins/scheduler-k3s
+- #9063: @dependabot[bot] chore(deps): bump pymdown-extensions from 12.0 to 12.0.1 in /docs/_build
+- #9068: @dependabot[bot] chore(deps): bump github.com/onsi/gomega from 1.43.0 to 1.43.1 in /plugins/scheduler-k3s
+- #9052: @dependabot[bot] chore(deps): bump pymdown-extensions from 11.0.2 to 12.0 in /docs/_build
+
+### Other
+
+- #9069: @josegonzalez Honor storage attachment process types at deploy time
+- #9011: @visheshgubrani Propagate command exit code on dokku run
+
 ## 0.38.28
 
 Install/update via the bootstrap script:
@@ -8553,7 +8810,7 @@ sudo DOKKU_TAG=v0.13.1 bash bootstrap.sh
 - #3145: @josegonzalez Add report trigger
 - #3144: @josegonzalez Increase curl max timeout to 600 seconds (10 minutes)
 - #3107: @znz Remove unused password in ssl cert generation
-- #3095: @josegonzalez Migrate env for NGINX_* to PROXY_*
+- #3095: @josegonzalez Migrate env for `NGINX_*` to `PROXY_*`
 - #3140: @josegonzalez Add newline to config:get output
 - #3139: @josegonzalez Add ability to initialize a git repository out of band
 - #3111: @josegonzalez Upgrade herokuish to 0.4.0
@@ -9362,7 +9619,7 @@ Release 0.5.5 is mostly a documentation release, further clarifying how our defa
 
 We've also added a small section to the [dokku homepage](https://dokku.com/docs/) that lists the current core team. Feel free to look at their beautiful faces and imagine yourself contributing to Dokku and joining our core team. There are [quite a few ways to contribute](https://github.com/dokku/dokku/blob/master/CONTRIBUTING.md) - even without code/documentation - so feel more than free to jump on the bandwagon!
 
-Finally, we've started an [Official Dokku Blog](https://dokku.github.io/), where we will post about dokku internals, roadmaps, potential use-cases, etc. An rss feed is available [here](https://dokku.github.io/feed.xml).
+Finally, we've started an [Official Dokku Blog](https://dokku.github.io/), where we will post about dokku internals, roadmaps, potential use-cases, etc. An [rss feed](https://dokku.github.io/feed.xml) is available.
 
 Thanks to all the contributors who helped with this release!
 
@@ -9567,7 +9824,7 @@ Thanks to all the contributors who helped with this release!
 
 ## 0.4.12
 
-This is a small bugfix release, which will be the final release before the 0.5.x line. You can follow along on bugs/features we hope to cleanup for 0.5.x [here](https://github.com/dokku/dokku/milestones/v0.5.0).
+This is a small bugfix release, which will be the final release before the 0.5.x line. You can follow along on bugs/features we hope to cleanup in the [0.5.x milestone](https://github.com/dokku/dokku/milestones/v0.5.0).
 
 Thanks to all the contributors who helped with this release!
 
@@ -10066,7 +10323,7 @@ This release is a bugfix release covering dokku packaging.
 
 ## 0.3.23
 
-This release is a bugfix release mostly covering installation and nginx issues. As well, we launched a nicer documentation site [here](https://dokku.com/docs/). Thanks to all of our contributors for making this a great release!
+This release is a bugfix release mostly covering installation and nginx issues. As well, we launched a [nicer documentation site](https://dokku.com/docs/). Thanks to all of our contributors for making this a great release!
 
 ### Bug Fixes
 

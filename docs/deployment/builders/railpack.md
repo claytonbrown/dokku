@@ -13,14 +13,17 @@ Before using Railpacks, the following steps must be taken:
 
 - Install the `railpack` cli: The `railpack` cli tool is not included by default with Dokku or as a dependency. It must also be installed as shown on [this page](https://railpack.com/installation).
 - Create a `buildkit` builder: Railpack uses buildkit.
-       ```shell
-       docker run --rm --privileged -d --name buildkit moby/buildkit
-       ```
+
+    ```shell
+    docker run --rm --privileged -d --name buildkit moby/buildkit
+    ```
+
 - Set the buildkit builder: Update the `/etc/default/dokku` file to set `BUILDKIT_HOST`:
-       ```shell
-       touch /etc/default/dokku
-       echo "export BUILDKIT_HOST='docker-container://buildkit'" >> /etc/default/dokku
-       ```
+
+    ```shell
+    touch /etc/default/dokku
+    echo "export BUILDKIT_HOST='docker-container://buildkit'" >> /etc/default/dokku
+    ```
 
 ### Detection
 
@@ -94,6 +97,8 @@ Disable cache using the [docker-options] plugin:
 ```shell
 dokku docker-options:add node-js-app build "--no-cache"
 ```
+
+To disable the cache for a single rebuild without persisting a setting, see the [rebuilding without the build cache](/docs/processes/process-management.md#rebuilding-without-the-build-cache) documentation.
 
 ### Displaying builder-railpack reports for an app
 

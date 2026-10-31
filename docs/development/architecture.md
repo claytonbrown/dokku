@@ -141,7 +141,7 @@ Plugins communicate through the **trigger system** powered by [plugn](https://gi
 **Key trigger categories:**
 
 | Category | Examples | Purpose |
-|----------|----------|---------|
+| ---------- | ---------- | --------- |
 | App lifecycle | `post-create`, `pre-delete`, `post-deploy` | React to app events |
 | Build | `builder-detect`, `pre-build`, `builder-build` | Control build process |
 | Deploy | `scheduler-deploy`, `check-deploy` | Manage deployments |
@@ -260,7 +260,7 @@ Dokku uses a file-based state system for simplicity and transparency.
 Plugin-specific configuration is stored in the property system:
 
 ```
-/var/lib/dokku/data/<plugin>/<app>/<property>
+/var/lib/dokku/config/<plugin>/<app>/<property>
 ```
 
 Properties are managed via helper functions:
@@ -276,6 +276,40 @@ fn-plugin-property-get "git" "$APP" "deploy-branch"
 common.PropertyWrite("git", appName, "deploy-branch", "main")
 common.PropertyGet("git", appName, "deploy-branch")
 ```
+
+Property writes for a given plugin and app are serialized by a lock on that app's property directory, and each write replaces the file atomically, so readers never see a partially written value. The list and map helpers, such as `PropertyListAdd` and `PropertyMapSet`, hold the lock while they read, change, and write a property.
+
+Code that reads a property and writes a value derived from it must hold the lock for the whole operation, or concurrent commands for the same app will overwrite each other's changes:
+
+```go
+// Go: update a single list property
+common.PropertyListUpdate("my-plugin", appName, "items", func(lines []string) ([]string, error) {
+    return append(lines, "new-item"), nil
+})
+
+// Go: read and write several properties together
+common.PropertyLock("my-plugin", appName, func(p *common.LockedProperties) error {
+    current := common.PropertyGet("my-plugin", appName, "current")
+    if err := p.Write("previous", current); err != nil {
+        return err
+    }
+    return p.Write("current", "new-value")
+})
+```
+
+```bash
+# Shell
+fn-my-plugin-rotate() {
+  declare desc="moves the current value to previous, expecting the caller to hold the my-plugin property lock"
+  declare APP="$1" VALUE="$2"
+  fn-plugin-property-write "my-plugin" "$APP" "previous" "$(fn-plugin-property-get "my-plugin" "$APP" "current")"
+  fn-plugin-property-write "my-plugin" "$APP" "current" "$VALUE"
+}
+
+fn-plugin-property-lock "my-plugin" "$APP" fn-my-plugin-rotate "$APP" "new-value"
+```
+
+Inside a `PropertyLock` callback, writes must go through the `LockedProperties` handle, as the public writers take the same lock. Shell callbacks may call the regular `fn-plugin-property-*` helpers.
 
 ### Per-App Data
 
@@ -299,7 +333,7 @@ Global settings can be configured via:
 ## Key Design Decisions
 
 | Decision | Rationale |
-|----------|-----------|
+| ---------- | ----------- |
 | **Plugin-based architecture** | Enables extensibility without modifying core code. Community plugins can add databases, caching, and other services. |
 | **Bash + Go hybrid** | Bash for orchestration and simple commands; Go for performance-critical operations and complex logic. |
 | **Trigger system** | Loose coupling between plugins. Plugins don't need to know about each other; they just fire and respond to events. |

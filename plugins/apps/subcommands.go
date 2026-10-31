@@ -27,7 +27,7 @@ func CommandClone(oldAppName string, newAppName string, skipDeploy bool, ignoreE
 		return err
 	}
 
-	if err := appExists(newAppName); err == nil {
+	if appNameTaken(newAppName) {
 		if ignoreExisting {
 			common.LogWarn("Name is already taken")
 			return nil
@@ -137,8 +137,11 @@ func CommandLock(appName string) error {
 		return err
 	}
 
-	lockPath := getLockPath(appName)
-	if _, err := os.Create(lockPath); err != nil {
+	lockFile, err := os.OpenFile(getManualLockPath(appName), os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return errors.New("Unable to create deploy lock")
+	}
+	if err := lockFile.Close(); err != nil {
 		return errors.New("Unable to create deploy lock")
 	}
 
@@ -178,8 +181,12 @@ func CommandRename(oldAppName string, newAppName string, skipDeploy bool) error 
 		return err
 	}
 
-	if err := appExists(newAppName); err == nil {
+	if appNameTaken(newAppName) {
 		return errors.New("Name is already taken")
+	}
+
+	if appIsManuallyLocked(oldAppName) {
+		return errors.New("Unable to rename a locked app, run apps:unlock first")
 	}
 
 	common.LogInfo1Quiet(fmt.Sprintf("Renaming %s to %s", oldAppName, newAppName))
@@ -259,13 +266,12 @@ func CommandUnlock(appName string) error {
 		return err
 	}
 
-	lockfilePath := getLockPath(appName)
-	if _, err := os.Stat(lockfilePath); !os.IsNotExist(err) {
+	if deployLockHeld(appName) {
 		common.LogWarn("A deploy may be in progress.")
 		common.LogWarn("Removing the app lock will not stop in progress deploys.")
 	}
 
-	if err := os.Remove(lockfilePath); err != nil {
+	if err := removeLockFiles(getManualLockPath(appName), getLockPath(appName)); err != nil {
 		return errors.New("Unable to remove deploy lock")
 	}
 

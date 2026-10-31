@@ -12,7 +12,9 @@ teardown() {
   destroy_app
   [[ -f "$DOKKU_ROOT/VHOST.bak" ]] && mv "$DOKKU_ROOT/VHOST.bak" "$DOKKU_ROOT/VHOST" && chown dokku:dokku "$DOKKU_ROOT/VHOST"
   docker network rm create-network || true
+  docker network rm create-network-2 || true
   docker network rm deploy-network || true
+  docker network rm deploy-network-2 || true
   docker network rm initial-network || true
   docker network rm "$TEST_NETWORK" || true
   global_teardown
@@ -630,6 +632,37 @@ teardown() {
   assert_success
 }
 
+@test "(network) network:set attach-post-create attaches every network" {
+  for network in create-network create-network-2 deploy-network deploy-network-2; do
+    run /bin/bash -c "dokku network:create $network"
+    echo "output: $output"
+    echo "status: $status"
+    assert_success
+  done
+
+  run /bin/bash -c "dokku network:set $TEST_APP attach-post-create create-network create-network-2"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku network:set $TEST_APP attach-post-deploy deploy-network deploy-network-2"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run deploy_app python dokku@$DOKKU_DOMAIN:$TEST_APP
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  for network in create-network create-network-2 deploy-network deploy-network-2; do
+    run /bin/bash -c "docker container inspect --format '{{range \$k, \$v := .NetworkSettings.Networks}}{{println \$k}}{{end}}' $TEST_APP.web.1 | grep -cx $network"
+    echo "output: $output"
+    echo "status: $status"
+    assert_output "1"
+  done
+}
+
 @test "(network) dont re-attach to network" {
   run /bin/bash -c "dokku network:create deploy-network"
   echo "output: $output"
@@ -697,4 +730,17 @@ teardown() {
   assert_success
   assert_output_contains "Attempting pre-flight checks" 0
   assert_output_contains "Application deployed"
+}
+
+@test "(network:rebuild) missing app" {
+  run /bin/bash -c "dokku network:rebuild missing-app"
+  echo "output: $output"
+  echo "status: $status"
+  assert_failure
+  assert_output_contains "App missing-app does not exist"
+
+  run /bin/bash -c "test -e $DOKKU_LIB_ROOT/config/common/missing-app"
+  echo "output: $output"
+  echo "status: $status"
+  assert_failure
 }

@@ -9,7 +9,14 @@ setup() {
 
 teardown() {
   remove_test_plugin || true
+  restore_enter_plugin
   global_teardown
+}
+
+restore_enter_plugin() {
+  declare desc="re-enables the enter core plugin if a test left it disabled"
+  [[ -e "$PLUGIN_CORE_PATH/enabled/enter" ]] || PLUGIN_PATH="$PLUGIN_CORE_PATH" plugn enable enter || true
+  [[ -e "$PLUGIN_ENABLED_PATH/enter" ]] || PLUGIN_PATH="$PLUGIN_PATH" plugn enable enter || true
 }
 
 @test "(plugin) plugin:help" {
@@ -116,7 +123,7 @@ teardown() {
   echo "status: $status"
   assert_success
 
-  run /bin/bash -c "sudo -E -u nobody dokku plugin:uninstall $TEST_PLUGIN_NAME"
+  run /bin/bash -c "sudo -u nobody dokku plugin:uninstall $TEST_PLUGIN_NAME"
   echo "output: $output"
   echo "status: $status"
   assert_failure
@@ -158,7 +165,7 @@ teardown() {
   echo "status: $status"
   assert_success
 
-  run /bin/bash -c "sudo -E -u nobody dokku plugin:uninstall $TEST_PLUGIN_NAME"
+  run /bin/bash -c "sudo -u nobody dokku plugin:uninstall $TEST_PLUGIN_NAME"
   echo "output: $output"
   echo "status: $status"
   assert_failure
@@ -212,7 +219,7 @@ teardown() {
 }
 
 @test "(plugin) plugin:install, plugin:disable, plugin:uninstall as non-root user failure" {
-  run /bin/bash -c "sudo -E -u nobody dokku plugin:install $TEST_PLUGIN_GIT_REPO"
+  run /bin/bash -c "sudo -u nobody dokku plugin:install $TEST_PLUGIN_GIT_REPO"
   echo "output: $output"
   echo "status: $status"
   assert_failure
@@ -227,7 +234,7 @@ teardown() {
   echo "status: $status"
   assert_success
 
-  run /bin/bash -c "sudo -E -u nobody dokku plugin:disable $TEST_PLUGIN_NAME"
+  run /bin/bash -c "sudo -u nobody dokku plugin:disable $TEST_PLUGIN_NAME"
   echo "output: $output"
   echo "status: $status"
   assert_failure
@@ -371,4 +378,41 @@ teardown() {
   assert_success
   assert_output_contains "root" "0"
   assert_output_contains "dokku" "3"
+}
+
+@test "(plugin:trigger) forwards the caller environment across the privilege drop" {
+  run /bin/bash -c "DOKKU_TEST_CROSSING=1 DOKKU_TRACE=1 dokku plugin:trigger app-list 2>&1 >/dev/null | grep -q -- '--preserve-env=[^ ]*DOKKU_TEST_CROSSING'"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+}
+
+@test "(plugin:enable) core plugin skipped at install" {
+  run /bin/bash -c "rm $PLUGIN_ENABLED_PATH/enter $PLUGIN_CORE_PATH/enabled/enter"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku plugin:list --format json | jq -r '.[] | select(.name == \"enter\") | .enabled'"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output "false"
+
+  run /bin/bash -c "dokku plugin:enable enter"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output_contains "Plugin enter enabled"
+
+  run /bin/bash -c "dokku plugin:list --format json | jq -r '.[] | select(.name == \"enter\") | .enabled'"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output "true"
+
+  run /bin/bash -c "test -L $PLUGIN_CORE_PATH/enabled/enter"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
 }

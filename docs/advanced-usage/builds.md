@@ -25,7 +25,9 @@ Every build is identified by a sortable base36 ULID-style id (`DOKKU_BUILD_ID`) 
 
 Output is also tagged into syslog as `dokku-<build-id>` so `journalctl -t dokku-<build-id>` continues to work. The on-disk log file is the durable source of truth and is read for `builds:output` even when journald has rotated old entries away.
 
-A run that builds nothing leaves no record behind. `git:sync` has to fetch before it can tell whether there is anything to deploy, so it opens a record up front and discards it again when it turns out there is not - a `git:sync` with no `--build` flag, or a `--build-if-changes` poll that finds the remote unchanged. Without that, an app polled on a timer would accumulate `running` records that are later reaped as spurious failures, pushing real deploys out of the retention window.
+A deploy that exits early - for example when the build fails - still finalizes its record as `failed` with its exit code.
+
+A run that builds nothing leaves no record behind. This includes a deploy refused because the app was locked via `apps:lock`. `git:sync` has to fetch before it can tell whether there is anything to deploy, so it opens a record up front and discards it again when it turns out there is not - a `git:sync` with no `--build` flag, or a `--build-if-changes` poll that finds the remote unchanged. Without that, an app polled on a timer would accumulate `running` records that are later reaped as spurious failures, pushing real deploys out of the retention window.
 
 ### Record schema
 
@@ -188,7 +190,7 @@ Available flags:
 The following flags surface in `builds:report` but are not managed by `builds:set` - they are derived metadata recorded during the build:
 
 | Flag | Description |
-|---|---|
+| --- | --- |
 | `--build-id` | Unique identifier of the most recent build for the app |
 | `--build-kind` | Whether the record was a `build` or a `deploy` |
 | `--build-status` | Display status (`running`, `succeeded`, `failed`, `canceled`, `abandoned`); computed at read time |

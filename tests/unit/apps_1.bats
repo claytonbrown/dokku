@@ -2,11 +2,16 @@
 
 load test_helper
 
+APP_FILTER_PLUGIN_NAME="app-filter-test"
+
 setup() {
   global_setup
 }
 
 teardown() {
+  release_deploy_lock
+  rm -rf "${PLUGIN_ENABLED_PATH:?}/$APP_FILTER_PLUGIN_NAME" "${PLUGIN_AVAILABLE_PATH:?}/$APP_FILTER_PLUGIN_NAME"
+  dokku --force apps:destroy "$TEST_APP-source" &>/dev/null || true
   global_teardown
 }
 
@@ -398,6 +403,162 @@ teardown() {
   destroy_app
 }
 
+@test "(apps) apps:lock does not modify the deploy lock file" {
+  run create_app
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "echo holder-id >$DOKKU_LIB_ROOT/data/apps/$TEST_APP/.deploy.lock && chown dokku:dokku $DOKKU_LIB_ROOT/data/apps/$TEST_APP/.deploy.lock"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku apps:lock $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "cat $DOKKU_LIB_ROOT/data/apps/$TEST_APP/.deploy.lock"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output "holder-id"
+
+  run /bin/bash -c "dokku apps:unlock $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  destroy_app
+}
+
+@test "(apps:locked) ignores a deploy lock file that no deploy holds" {
+  run create_app
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "echo stale-id >$DOKKU_LIB_ROOT/data/apps/$TEST_APP/.deploy.lock && chown dokku:dokku $DOKKU_LIB_ROOT/data/apps/$TEST_APP/.deploy.lock"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku apps:locked $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_failure
+
+  run /bin/bash -c "dokku apps:report $TEST_APP --app-locked"
+  echo "output: $output"
+  echo "status: $status"
+  assert_output "false"
+
+  destroy_app
+}
+
+@test "(apps:locked) reports a deploy lock held by a running deploy" {
+  run create_app
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  hold_deploy_lock
+
+  run /bin/bash -c "dokku apps:locked $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku apps:unlock $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output_contains "A deploy may be in progress."
+
+  release_deploy_lock
+  destroy_app
+}
+
+@test "(apps:unlock) succeeds for an app that is not locked" {
+  run create_app
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku apps:unlock $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output_not_contains "A deploy may be in progress."
+
+  destroy_app
+}
+
+@test "(apps:rename) fails for a locked app" {
+  run create_app
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku apps:lock $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku apps:rename $TEST_APP great-test-name"
+  echo "output: $output"
+  echo "status: $status"
+  assert_failure
+  assert_output_contains "Unable to rename a locked app"
+
+  run /bin/bash -c "dokku apps:exists great-test-name"
+  echo "output: $output"
+  echo "status: $status"
+  assert_failure
+
+  run /bin/bash -c "dokku apps:locked $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  destroy_app
+}
+
+@test "(apps) [install] converts a lock created by apps:lock in older versions" {
+  run create_app
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "sudo -u dokku touch $DOKKU_LIB_ROOT/data/apps/$TEST_APP/.deploy.lock"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "DOKKU_ROOT=$DOKKU_ROOT PLUGIN_PATH=$PLUGIN_PATH PLUGIN_AVAILABLE_PATH=$PLUGIN_AVAILABLE_PATH PLUGIN_ENABLED_PATH=$PLUGIN_ENABLED_PATH PLUGIN_CORE_AVAILABLE_PATH=$PLUGIN_CORE_AVAILABLE_PATH DOKKU_LIB_ROOT=$DOKKU_LIB_ROOT $PLUGIN_ENABLED_PATH/apps/install"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "[[ ! -e $DOKKU_LIB_ROOT/data/apps/$TEST_APP/.deploy.lock ]]"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "[[ -f $DOKKU_LIB_ROOT/data/apps/$TEST_APP/.manual-deploy.lock ]]"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku apps:locked $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  destroy_app
+}
+
 @test "(apps:report) emits new stripped JSON keys alongside legacy" {
   create_app
 
@@ -488,4 +649,60 @@ teardown() {
   assert_output_contains "Property can only be specified globally"
 
   destroy_app
+}
+
+@test "(apps) apps:create, apps:clone, and apps:rename with an existing filtered app" {
+  create_app
+  create_app "$TEST_APP-source"
+
+  setup_app_filter_plugin "$TEST_APP"
+
+  run /bin/bash -c "dokku apps:create $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_failure
+  assert_output_contains "Name is already taken"
+  assert_output_not_contains "Creating $TEST_APP"
+
+  run /bin/bash -c "dokku apps:clone $TEST_APP-source $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_failure
+  assert_output_contains "Name is already taken"
+
+  run /bin/bash -c "dokku apps:rename $TEST_APP-source $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_failure
+  assert_output_contains "Name is already taken"
+
+  rm -rf "${PLUGIN_ENABLED_PATH:?}/$APP_FILTER_PLUGIN_NAME" "${PLUGIN_AVAILABLE_PATH:?}/$APP_FILTER_PLUGIN_NAME"
+
+  destroy_app 0 "$TEST_APP-source"
+  destroy_app
+}
+
+setup_app_filter_plugin() {
+  declare desc="installs a plugin that filters out a single app"
+  declare FILTERED_APP="$1"
+  local PLUGIN_DIR="$PLUGIN_AVAILABLE_PATH/$APP_FILTER_PLUGIN_NAME"
+  mkdir -p "$PLUGIN_DIR"
+
+  cat <<EOF >"$PLUGIN_DIR/plugin.toml"
+[plugin]
+description = "test plugin filtering out a single app"
+version = "0.1.0"
+[plugin.config]
+EOF
+
+  cat <<EOF >"$PLUGIN_DIR/user-auth-app"
+#!/usr/bin/env bash
+shift 2
+for app in "\$@"; do
+  [[ "\$app" == "$FILTERED_APP" ]] || echo "\$app"
+done
+EOF
+  chmod +x "$PLUGIN_DIR/user-auth-app"
+
+  dokku plugin:enable "$APP_FILTER_PLUGIN_NAME"
 }

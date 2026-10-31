@@ -3,7 +3,7 @@
 Pull the dokku/dokku image:
 
 ```shell
-docker pull dokku/dokku:0.38.28
+docker pull dokku/dokku:0.38.34
 ```
 
 Next, run the image.
@@ -19,7 +19,7 @@ docker container run -d \
   --publish 8443:443 \
   --volume /var/lib/dokku:/mnt/dokku \
   --volume /var/run/docker.sock:/var/run/docker.sock \
-  dokku/dokku:0.38.28
+  dokku/dokku:0.38.34
 ```
 
 Alternatively, you can use `docker-compose.yml`:
@@ -27,7 +27,7 @@ Alternatively, you can use `docker-compose.yml`:
 ```yaml
 services:
   dokku:
-    image: dokku/dokku:0.38.28
+    image: dokku/dokku:0.38.34
     container_name: dokku
     network_mode: bridge
     ports:
@@ -67,7 +67,7 @@ Compose dependents can gate on the healthcheck via `depends_on` with `condition:
 ```yaml
 services:
   dokku:
-    image: dokku/dokku:0.38.28
+    image: dokku/dokku:0.38.34
     # ...
   bootstrap:
     image: alpine:3.20
@@ -87,8 +87,9 @@ Dokku is run in the following configuration:
 - Data within the container is stored on the host within the `/var/lib/dokku` directory.
 - Image build cache is set to the data dir + `/home/dokku`.
 - The docker socket is mounted into container.
+- `DOKKU_HOST_ROOT` and `DOKKU_LIB_HOST_ROOT` tell Dokku how the host Docker daemon sees those same trees when creating bind mounts (app repos and plugin data such as named storage).
 
-Application repositories, plugin config, as well as plugin data are persisted to disk within the specified host directory for `/var/lib/dokku`.
+Application repositories, plugin config, as well as plugin data are persisted to disk within the specified host directory for `/var/lib/dokku`. `DOKKU_LIB_HOST_ROOT` must point at that host path's `var/lib/dokku` subtree so Docker `-v` mounts resolve under the data volume rather than under the host's own `/var/lib/dokku`.
 
 Other docker container options can also be used when running Dokku, though the specific outcome will depend upon the specified options. For example, the Dokku container's nginx port can be bound to a specific host ip by specifying `--publish $HOST_IP:8080:80`, where `$HOST_IP` is the IP desired. Please see the [docker container run documentation](https://docs.docker.com/engine/reference/commandline/run/) for further explanation for various docker arguments.
 
@@ -114,7 +115,7 @@ redis: https://github.com/dokku/dokku-redis.git
 The alternative is to build a custom docker image via a custom Dockerfile. This Dockerfile can run any `plugin:install` command, though the `install` trigger must be skipped via the `--skip-install-trigger`. The version installed at that time will be the one that persists. Below is an example Dockerfile showing this method.
 
 ```Dockerfile
-FROM dokku/dokku:0.38.28
+FROM dokku/dokku:0.38.34
 RUN dokku plugin:install https://github.com/dokku/dokku-postgres.git --skip-install-trigger
 RUN dokku plugin:install https://github.com/dokku/dokku-redis.git --skip-install-trigger
 ```

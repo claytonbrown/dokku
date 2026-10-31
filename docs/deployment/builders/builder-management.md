@@ -167,6 +167,8 @@ To create a custom builder, the following triggers must be implemented:
     - arguments: `BUILDER_TYPE` `APP` `IMAGE_AG`
     - description: A post-build, pre-release trigger that can be used to post-process the image. Usually simply tags and labels the image appropriately.
 
+When an app is rebuilt via `ps:rebuild --no-cache`, the `DOKKU_BUILD_NO_CACHE` environment variable is set to `true` during the `builder-build` trigger. Custom builders should skip any build cache they use when this variable is set.
+
 Custom plugins names _must_ have the prefix `builder-` or builder overriding via `builder:set` may not function as expected.
 
 Builders can use any tools available on the system to build the docker image, and may even be used to schedule building off-server. The only current requirement is that the image must exist on the server at the end of the `builder-build` command, though this requirement may be relaxed in a future release.
@@ -181,7 +183,7 @@ For a simple example of how to implement this trigger, see `builder-pack`, which
 > The `Report flags` column lists the CLI argument names accepted by `builder:report`. The JSON keys emitted by `builder:report --format json` are the same names with the leading `--builder-` stripped (e.g. `selected`, `global-selected`, `computed-selected`). Legacy keys with the `builder-` prefix are also emitted during the 0.38.x deprecation window and will be removed in a future major release.
 
 | Property | Scope | Default | Report flags | Description |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `build-dir` | app + global | none | `--builder-build-dir`, `--builder-global-build-dir`, `--builder-computed-build-dir` | Subdirectory within the repository to use as the build context |
 | `selected` | app + global | none | `--builder-selected`, `--builder-global-selected`, `--builder-computed-selected` | Builder plugin to use; overrides automatic detection |
 | `skip-cleanup` | app + global | `false` | `--builder-skip-cleanup`, `--builder-global-skip-cleanup`, `--builder-computed-skip-cleanup` | When `true`, leaves intermediate build artifacts in place after the build |

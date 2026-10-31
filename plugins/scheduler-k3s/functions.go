@@ -820,6 +820,20 @@ func getComputedDeployTimeout(appName string) string {
 	return deployTimeout
 }
 
+// getHelmChart returns the helm chart managed by dokku with the given release name
+func getHelmChart(chartName string) (HelmChart, error) {
+	knownCharts := []string{}
+	for _, chart := range HelmCharts {
+		if chart.ReleaseName == chartName {
+			return chart, nil
+		}
+		knownCharts = append(knownCharts, chart.ReleaseName)
+	}
+
+	sort.Strings(knownCharts)
+	return HelmChart{}, fmt.Errorf("Invalid chart name %q, valid charts: %s", chartName, strings.Join(knownCharts, ", "))
+}
+
 func getImagePullSecrets(appName string) string {
 	return common.PropertyGet("scheduler-k3s", appName, "image-pull-secrets")
 }
@@ -1043,6 +1057,10 @@ func getIngressAnnotations(appName string, processType string) (map[string]strin
 				}
 				return fmt.Sprintf("proxy_busy_buffers_size %s;", value)
 			},
+		},
+		"proxy-http-version": {
+			annotation: "nginx.ingress.kubernetes.io/proxy-http-version",
+			getter:     nginxvhosts.ComputedProxyHttpVersion,
 		},
 		"proxy-connect-timeout": {
 			annotation: "nginx.ingress.kubernetes.io/proxy-connect-timeout",
@@ -1646,8 +1664,12 @@ func getComputedKustomizeRootPath(appName string) string {
 	return kustomizeRootPath
 }
 
+func getGlobalNodeSysctlsImage() string {
+	return common.PropertyGet("scheduler-k3s", "--global", "node-sysctls-image")
+}
+
 func getComputedNodeSysctlsImage() string {
-	image := common.PropertyGet("scheduler-k3s", "--global", "node-sysctls-image")
+	image := getGlobalNodeSysctlsImage()
 	if image == "" {
 		image = DefaultNodeSysctlsImage
 	}
@@ -1655,8 +1677,12 @@ func getComputedNodeSysctlsImage() string {
 	return image
 }
 
+func getGlobalNodeSysctlsPauseImage() string {
+	return common.PropertyGet("scheduler-k3s", "--global", "node-sysctls-pause-image")
+}
+
 func getComputedNodeSysctlsPauseImage() string {
-	image := common.PropertyGet("scheduler-k3s", "--global", "node-sysctls-pause-image")
+	image := getGlobalNodeSysctlsPauseImage()
 	if image == "" {
 		image = DefaultNodeSysctlsPauseImage
 	}
@@ -1938,7 +1964,7 @@ func getProcessResources(appName string, processType string) (ProcessResourcesMa
 		if err != nil {
 			return ProcessResourcesMap{}, fmt.Errorf("Error parsing memory limit: %w", err)
 		}
-		if quantity != "0Mi" {
+		if quantity != "0" {
 			processResources.Limits.Memory = quantity
 		} else {
 			processResources.Limits.Memory = ""
@@ -1969,7 +1995,7 @@ func getProcessResources(appName string, processType string) (ProcessResourcesMa
 		if err != nil {
 			return ProcessResourcesMap{}, fmt.Errorf("Error parsing memory request: %w", err)
 		}
-		if quantity != "0Mi" {
+		if quantity != "0" {
 			processResources.Requests.Memory = quantity
 		} else {
 			processResources.Requests.Memory = ""
@@ -2132,7 +2158,7 @@ func getProcessSpecificKustomizeRootPath(appName string) string {
 func hasKustomizeDirectory(appName string) bool {
 	directory := getKustomizeDirectory(appName)
 
-	if common.DirectoryExists(fmt.Sprintf("%s.%s.missing", directory, os.Getenv("DOKKU_PID"))) {
+	if common.FileExists(fmt.Sprintf("%s.%s.missing", directory, os.Getenv("DOKKU_PID"))) {
 		return false
 	}
 
@@ -2712,17 +2738,14 @@ func cronIDLabelValue(cronID string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// parseMemoryQuantity parses a string into a valid memory quantity
+// parseMemoryQuantity parses a docker-compatible memory value into a binary memory quantity
 func parseMemoryQuantity(input string) (string, error) {
-	if _, err := strconv.ParseInt(input, 10, 64); err == nil {
-		input = fmt.Sprintf("%sMi", input)
-	}
-	quantity, err := resource.ParseQuantity(input)
+	bytes, err := common.ParseMemoryBytes(input)
 	if err != nil {
 		return "", err
 	}
 
-	return quantity.String(), nil
+	return resource.NewQuantity(bytes, resource.BinarySI).String(), nil
 }
 
 func uninstallHelperCommands(ctx context.Context) error {

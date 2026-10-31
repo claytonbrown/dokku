@@ -8,6 +8,8 @@ setup() {
 
 teardown() {
   global_teardown
+  docker image rm "dokku-test/$TEST_APP:shared" &>/dev/null || true
+  start_retire_timer
 }
 
 @test "(scheduler-docker-local:report) --global raw and computed keys" {
@@ -482,4 +484,167 @@ teardown() {
   echo "output: $output"
   echo "status: $status"
   assert_output "running"
+}
+
+@test "(scheduler-docker-local) ps:retire keeps an image that is another app's source image" {
+  local SECOND_APP="$TEST_APP-2" TMP_IMAGE_DIR
+  stop_retire_timer
+  TMP_IMAGE_DIR="$(mktemp -d "/tmp/${DOKKU_DOMAIN}.XXXXX")"
+  cp -r "${BATS_TEST_DIRNAME}/../../tests/apps/python/." "$TMP_IMAGE_DIR"
+  run /bin/bash -c "docker image build -t dokku-test/$TEST_APP:shared -f $TMP_IMAGE_DIR/alt.Dockerfile $TMP_IMAGE_DIR"
+  echo "output: $output"
+  echo "status: $status"
+  rm -rf "$TMP_IMAGE_DIR"
+  assert_success
+
+  run create_app
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run create_app "$SECOND_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku checks:set $TEST_APP wait-to-retire 1"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku git:from-image $TEST_APP dokku-test/$TEST_APP:shared"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku git:from-image $SECOND_APP dokku-test/$TEST_APP:shared"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "tar -C ${BATS_TEST_DIRNAME}/../../tests/apps -cf - python | dokku git:from-archive $TEST_APP --"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  sleep 3
+
+  run /bin/bash -c "dokku ps:retire"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output_contains "is the source image for $SECOND_APP"
+
+  run /bin/bash -c "docker image inspect dokku-test/$TEST_APP:shared --format '{{.Id}}'"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+}
+
+@test "(scheduler-docker-local) procfile quoted arguments on deploy" {
+  run create_app
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run deploy_app python dokku@$DOKKU_DOMAIN:$TEST_APP quoted_procfile_callback
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "docker inspect --format '{{json .Config.Cmd}}' $TEST_APP.web.1"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output '["python3","-u","web.py","double quoted","single quoted","escaped \"quote\"","literal`tick`","5000"]'
+}
+
+@test "(scheduler-docker-local) procfile quoted arguments on run" {
+  run create_app
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run deploy_app python dokku@$DOKKU_DOMAIN:$TEST_APP quoted_procfile_callback
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku run $TEST_APP args"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output_contains "['double quoted', 'single quoted', 'escaped \"quote\"', 'literal\`tick\`', '5000']"
+}
+
+@test "(scheduler-docker-local) procfile with shell operators fails deploy" {
+  run create_app
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run deploy_app python dokku@$DOKKU_DOMAIN:$TEST_APP operator_procfile_callback
+  echo "output: $output"
+  echo "status: $status"
+  assert_failure
+  assert_output_contains "Unable to parse command"
+}
+
+@test "(scheduler-docker-local) deploy removes stale CHECKS files" {
+  local DATA_DIR="/var/lib/dokku/data/scheduler-docker-local/$TEST_APP"
+
+  run create_app
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  mkdir -p "$DATA_DIR"
+  echo "/ python/http.server" >"$DATA_DIR/CHECKS.99999999"
+  touch "$DATA_DIR/CHECKS.99999998.missing"
+  chown -R dokku:dokku "$DATA_DIR"
+
+  run deploy_app python dokku@$DOKKU_DOMAIN:$TEST_APP
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "find $DATA_DIR -maxdepth 1 -name 'CHECKS.*'"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output_not_exists
+}
+
+quoted_procfile_callback() {
+  local APP="$1"
+  local APP_REPO_DIR="$2"
+  mv "$APP_REPO_DIR/dockerfile.Dockerfile" "$APP_REPO_DIR/Dockerfile"
+  cat >"$APP_REPO_DIR/Procfile" <<'PROCFILE'
+web: python3 -u web.py "double quoted" 'single quoted' "escaped \"quote\"" literal\`tick\` "$PORT"
+args: python3 -c "import sys; print(sys.argv[1:])" "double quoted" 'single quoted' "escaped \"quote\"" literal\`tick\` "$PORT"
+PROCFILE
+}
+
+operator_procfile_callback() {
+  local APP="$1"
+  local APP_REPO_DIR="$2"
+  mv "$APP_REPO_DIR/dockerfile.Dockerfile" "$APP_REPO_DIR/Dockerfile"
+  cat >"$APP_REPO_DIR/Procfile" <<'PROCFILE'
+web: python3 -u web.py && echo done
+PROCFILE
+}
+
+stop_retire_timer() {
+  declare desc="stops the dokku-retire timer so only the test runs ps:retire"
+  if systemctl is-active --quiet dokku-retire.timer 2>/dev/null; then
+    systemctl stop dokku-retire.timer
+    RETIRE_TIMER_STOPPED=true
+  fi
+}
+
+start_retire_timer() {
+  declare desc="starts the dokku-retire timer if stop_retire_timer stopped it"
+  if [[ "$RETIRE_TIMER_STOPPED" == "true" ]]; then
+    systemctl start dokku-retire.timer
+  fi
 }

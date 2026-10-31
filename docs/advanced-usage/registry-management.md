@@ -243,7 +243,7 @@ dokku registry:set --global push-on-release
 
 When `push-on-release` is enabled, Dokku treats the remote registry as the canonical store for app images. If a local image disappears - for example because a `docker image prune` cron ran, the host rebooted, or an operator removed it manually - subsequent commands that need the image (`ps:restart`, `ps:scale`, `dokku run`, `domains:add`, `certs:add`, etc.) will pull the missing tag back from the registry automatically. Per-app registry credentials configured via `registry:login` are honored during the pull. This recovery covers the deployed numeric tag pushed by the registry plugin - a missing `latest` tag will be ignored.
 
-### Push extra tags 
+### Push extra tags
 
 To push the image on release with extra tags, set the `push-extra-tags` to a comma-separated list of tags via the `registry:set` command. The default value for this property is empty. Setting the property will result in the image being tagged with extra tags every release.
 
@@ -251,6 +251,7 @@ To push the image on release with extra tags, set the `push-extra-tags` to a com
 # multiple-tags
 dokku registry:set node-js-app push-extra-tags foo,bar
 ```
+
 The `push-extra-tags` can be set to a single tag too.
 
 ```shell
@@ -282,7 +283,7 @@ dokku registry:set --global push-extra-tags
 > The `Report flags` column lists the CLI argument names accepted by `registry:report`. The JSON keys emitted by `registry:report --format json` are the same names with the leading `--registry-` stripped (e.g. `image-repo`, `global-server`, `computed-push-on-release`). Legacy keys with the `registry-` prefix (e.g. `registry-image-repo`) are also emitted during the 0.38.x deprecation window and will be removed in a future major release.
 
 | Property | Scope | Default | Report flags | Description |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `image-repo` | app only | `dokku/<app>` | `--registry-image-repo`, `--registry-computed-image-repo` | Repository name used when pushing the app's image (overrides the global template) |
 | `image-repo-template` | app + global | none | `--registry-image-repo-template`, `--registry-global-image-repo-template`, `--registry-computed-image-repo-template` | Go template used to compute the per-app image repository when `image-repo` is unset |
 | `push-extra-tags` | app + global | none | `--registry-push-extra-tags`, `--registry-global-push-extra-tags`, `--registry-computed-push-extra-tags` | Comma-separated list of additional tags pushed alongside the deploy tag |
@@ -297,7 +298,7 @@ dokku registry:set --global push-extra-tags
 The following `registry:report` fields describe credentials created by `registry:login` and are not settable via `registry:set`.
 
 | Report flag | Scope | Description |
-|---|---|---|
+| --- | --- | --- |
 | `--registry-auth-servers` | app only | Comma-separated list of servers the app has its own credentials for |
 | `--registry-global-auth-servers` | app + global | Comma-separated list of servers the global credentials cover |
 | `--registry-computed-auth-servers` | app + global | Comma-separated list of servers whose credentials would be used for the app |

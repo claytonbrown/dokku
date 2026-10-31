@@ -1,4 +1,4 @@
-go 1.26.2
+go 1.27.1
 
 use (
 	./plugins/app-json
@@ -11,12 +11,14 @@ use (
 	./plugins/builder-pack
 	./plugins/builder-railpack
 	./plugins/buildpacks
+	./plugins/builds
 	./plugins/caddy-vhosts
 	./plugins/certs
 	./plugins/checks
 	./plugins/common
 	./plugins/config
 	./plugins/cron
+	./plugins/datastore
 	./plugins/docker-options
 	./plugins/domains
 	./plugins/git

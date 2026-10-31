@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/dokku/dokku/plugins/common"
-	"mvdan.cc/sh/v3/syntax"
+	"github.com/dokku/dokku/plugins/common/shellwords"
 )
 
 // DefaultProcessType is the sentinel process-type key used for options that
@@ -32,7 +32,7 @@ func SplitOptionString(input string) (options []string, processes []string, err 
 		return nil, nil, nil
 	}
 
-	fields, err := literalFields(input)
+	fields, err := shellwords.Split(input)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Unable to parse docker option: %s", err.Error())
 	}
@@ -93,7 +93,7 @@ func groupOptionTokens(fields []string) [][]string {
 // stops before consuming all of it - a line whose tail begins with an unquoted
 // `#` reads as a shell comment, and dropping it would lose stored data.
 func canonicalOptionsFromLine(line string) []string {
-	fields, end, err := literalFieldsWithEnd(line)
+	fields, end, err := shellwords.SplitWithEnd(line)
 	if err != nil || end < len(strings.TrimRight(line, " \t")) {
 		return []string{line}
 	}
@@ -118,101 +118,17 @@ func optionsEqual(stored string, option string) bool {
 		return true
 	}
 
-	storedFields, err := literalFields(stored)
+	storedFields, err := shellwords.Split(stored)
 	if err != nil {
 		return false
 	}
 
-	optionFields, err := literalFields(option)
+	optionFields, err := shellwords.Split(option)
 	if err != nil {
 		return false
 	}
 
 	return slices.Equal(storedFields, optionFields)
-}
-
-// literalFields splits input into shell words using the parser directly, so
-// quotes delimit words and are stripped from the stored value, but nothing is
-// expanded. Parameter expansions, command substitutions, and other
-// metacharacters are preserved verbatim. Malformed input, such as an unbalanced
-// quote, returns the parser error.
-func literalFields(input string) ([]string, error) {
-	fields, _, err := literalFieldsWithEnd(input)
-	return fields, err
-}
-
-// literalFieldsWithEnd is literalFields plus the byte offset just past the last
-// word the parser consumed. Callers that must not lose data compare the offset
-// against the length of the input to detect a tail the parser skipped, such as
-// a shell comment.
-func literalFieldsWithEnd(input string) ([]string, int, error) {
-	parser := syntax.NewParser()
-	var fields []string
-	end := 0
-	for word, err := range parser.WordsSeq(strings.NewReader(input)) {
-		if err != nil {
-			return nil, 0, err
-		}
-		fields = append(fields, literalWordValue(input, word.Parts))
-		end = int(word.End().Offset())
-	}
-	return fields, end, nil
-}
-
-// literalWordValue reconstructs the unquoted, unexpanded value of a shell word.
-// Literal and single-quoted parts contribute their literal text; double-quoted
-// parts have their surrounding quotes dropped while their contents stay
-// literal; every other part - parameter expansions, command substitutions,
-// arithmetic expansions - contributes its original source text unchanged.
-// Backslash escapes are removed the same way the shell removes them during
-// quote removal so a value such as `Host(\`app\`)` round-trips to `Host(`app`)`.
-func literalWordValue(input string, parts []syntax.WordPart) string {
-	var sb strings.Builder
-	for _, part := range parts {
-		switch p := part.(type) {
-		case *syntax.Lit:
-			sb.WriteString(unquoteBackslashes(p.Value, false))
-		case *syntax.SglQuoted:
-			sb.WriteString(p.Value)
-		case *syntax.DblQuoted:
-			for _, inner := range p.Parts {
-				if lit, ok := inner.(*syntax.Lit); ok {
-					sb.WriteString(unquoteBackslashes(lit.Value, true))
-					continue
-				}
-				sb.WriteString(input[inner.Pos().Offset():inner.End().Offset()])
-			}
-		default:
-			sb.WriteString(input[part.Pos().Offset():part.End().Offset()])
-		}
-	}
-	return sb.String()
-}
-
-// unquoteBackslashes removes backslashes the way the shell does during quote
-// removal. Inside double quotes only \$, \`, \", \\, and an escaped newline
-// lose their backslash; unquoted, a backslash escapes any following character.
-func unquoteBackslashes(s string, inDblQuotes bool) string {
-	if !strings.Contains(s, "\\") {
-		return s
-	}
-	var sb strings.Builder
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\\' && i+1 < len(s) {
-			next := s[i+1]
-			if next == '\n' {
-				i++
-				continue
-			}
-			if !inDblQuotes || next == '$' || next == '`' || next == '"' || next == '\\' {
-				sb.WriteByte(next)
-				i++
-				continue
-			}
-		}
-		sb.WriteByte(s[i])
-	}
-	return sb.String()
 }
 
 // isFlagToken reports whether tok looks like a CLI flag (long or short) rather
@@ -238,9 +154,12 @@ func joinShellTokens(tokens []string) string {
 // quoteShellArg returns s wrapped in single quotes when it contains characters
 // the shell would otherwise interpret (whitespace, quotes, expansion sigils,
 // globs, redirections, etc.). Embedded single quotes are escaped with the
-// standard `'\''` close-escape-open sequence. Tokens free of such characters
-// are returned verbatim so the stored representation stays human-readable for
-// the common case.
+// standard close-escape-open sequence:
+//
+//	'\''
+//
+// Tokens free of such characters are returned verbatim so the stored
+// representation stays human-readable for the common case.
 func quoteShellArg(s string) string {
 	if s == "" {
 		return "''"
@@ -279,32 +198,17 @@ func SetDockerOptionForPhases(appName string, phases []string, name string, valu
 // SetDockerOptionForProcessPhases sets a `--name=value` option for the specified
 // process types and phases, replacing any existing entry with the same name.
 func SetDockerOptionForProcessPhases(appName string, processTypes []string, phases []string, name string, value string) error {
-	if len(processTypes) == 0 {
-		processTypes = []string{DefaultProcessType}
-	}
-	for _, processType := range processTypes {
-		for _, phase := range phases {
-			options, err := GetDockerOptionsForProcessPhase(appName, processType, phase)
-			if err != nil {
-				return err
+	return updateDockerOptionsForProcessPhases(appName, processTypes, phases, func(options []string) []string {
+		newOptions := []string{}
+		for _, option := range options {
+			if strings.HasPrefix(option, fmt.Sprintf("--%s=", name)) {
+				continue
 			}
-
-			newOptions := []string{}
-			for _, option := range options {
-				if strings.HasPrefix(option, fmt.Sprintf("--%s=", name)) {
-					continue
-				}
-				newOptions = append(newOptions, option)
-			}
-
-			newOptions = append(newOptions, fmt.Sprintf("--%s=%s", name, value))
-			sort.Strings(newOptions)
-			if err := writeDockerOptionsForProcessPhase(appName, processType, phase, newOptions); err != nil {
-				return err
-			}
+			newOptions = append(newOptions, option)
 		}
-	}
-	return nil
+
+		return append(newOptions, fmt.Sprintf("--%s=%s", name, value))
+	})
 }
 
 // AddDockerOptionToPhases adds an option to the default scope for the specified phases.
@@ -314,24 +218,9 @@ func AddDockerOptionToPhases(appName string, phases []string, option string) err
 
 // AddDockerOptionToProcessPhases adds an option to the specified process types and phases.
 func AddDockerOptionToProcessPhases(appName string, processTypes []string, phases []string, option string) error {
-	if len(processTypes) == 0 {
-		processTypes = []string{DefaultProcessType}
-	}
-	for _, processType := range processTypes {
-		for _, phase := range phases {
-			options, err := GetDockerOptionsForProcessPhase(appName, processType, phase)
-			if err != nil {
-				return err
-			}
-
-			options = append(options, option)
-			sort.Strings(options)
-			if err := writeDockerOptionsForProcessPhase(appName, processType, phase, options); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return updateDockerOptionsForProcessPhases(appName, processTypes, phases, func(options []string) []string {
+		return append(options, option)
+	})
 }
 
 // GetDockerOptionsForPhase returns the docker options stored under the default
@@ -371,30 +260,15 @@ func RemoveDockerOptionFromPhases(appName string, phases []string, option string
 // non-canonical form still matches the canonically re-serialized string the
 // CLI hands down.
 func RemoveDockerOptionFromProcessPhases(appName string, processTypes []string, phases []string, option string) error {
-	if len(processTypes) == 0 {
-		processTypes = []string{DefaultProcessType}
-	}
-	for _, processType := range processTypes {
-		for _, phase := range phases {
-			options, err := GetDockerOptionsForProcessPhase(appName, processType, phase)
-			if err != nil {
-				return err
-			}
-
-			newOptions := []string{}
-			for _, opt := range options {
-				if !optionsEqual(opt, option) {
-					newOptions = append(newOptions, opt)
-				}
-			}
-
-			sort.Strings(newOptions)
-			if err := writeDockerOptionsForProcessPhase(appName, processType, phase, newOptions); err != nil {
-				return err
+	return updateDockerOptionsForProcessPhases(appName, processTypes, phases, func(options []string) []string {
+		newOptions := []string{}
+		for _, opt := range options {
+			if !optionsEqual(opt, option) {
+				newOptions = append(newOptions, opt)
 			}
 		}
-	}
-	return nil
+		return newOptions
+	})
 }
 
 // GetSpecifiedDockerOptionsForPhase returns the docker options for the specified
@@ -491,6 +365,31 @@ func splitPropertyKey(key string) (processType, phase string, ok bool) {
 	return processType, phase, true
 }
 
-func writeDockerOptionsForProcessPhase(appName, processType, phase string, options []string) error {
-	return common.PropertyListWrite("docker-options", appName, propertyKey(processType, phase), options)
+// updateDockerOptionsForProcessPhases rewrites the stored options of every
+// process type and phase combination with the sorted result of update, holding
+// the app's docker-options property lock across every read and write so
+// concurrent updates to the same app cannot drop each other's options. An
+// empty processTypes list is treated as the default scope.
+func updateDockerOptionsForProcessPhases(appName string, processTypes []string, phases []string, update func(options []string) []string) error {
+	if len(processTypes) == 0 {
+		processTypes = []string{DefaultProcessType}
+	}
+
+	return common.PropertyLock("docker-options", appName, func(p *common.LockedProperties) error {
+		for _, processType := range processTypes {
+			for _, phase := range phases {
+				options, err := GetDockerOptionsForProcessPhase(appName, processType, phase)
+				if err != nil {
+					return err
+				}
+
+				options = update(options)
+				sort.Strings(options)
+				if err := p.ListWrite(propertyKey(processType, phase), options); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
 }

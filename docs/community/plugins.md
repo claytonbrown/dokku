@@ -22,6 +22,8 @@ Let's take a quick look at the current Dokku nginx plugin that's shipped with Do
 
 The following plugins are available and provided by Dokku maintainers.  Please file issues against their respective issue trackers.
 
+Every datastore below is also served by the `datastore` plugin Dokku ships, as in `dokku datastore:create postgres lollipop`. See the [datastore management documentation](/docs/advanced-usage/datastore-management.md) for more information.
+
 | Plugin                                                                                            | Author                | Compatibility         |
 | ------------------------------------------------------------------------------------------------- | --------------------- | --------------------- |
 | [Clickhouse](https://github.com/dokku/dokku-clickhouse)                                           | [dokku][]             | 0.4.0+                |
@@ -154,6 +156,7 @@ The following plugins are available and provided by Dokku maintainers.  Please f
 | ------------------------------------------------------------------------------------------------- | --------------------- | --------------------- |
 | [Chef cookbook](https://github.com/nickcharlton/dokku-cookbook)                                   | [nickcharlton][]      |                       |
 | [Discourse](https://github.com/badsyntax/dokku-discourse)                                         | [badsyntax][]         | 0.21.4+               |
+| [LibreDB Studio (database GUI)](https://github.com/libredb/dokku-libredb-studio)                  | [libredb][]           | 0.35.20+              |
 | [Tailscale](https://github.com/andrew-womeldorf/dokku-tailscale)                                  | [andrew-womeldorf][]  | 0.34.4+               |
 | [Wordpress](https://github.com/dokku-community/dokku-wordpress)                                   | [dokku-community][]   | 0.4.0+                |
 
@@ -230,7 +233,7 @@ The following plugins are no longer maintained by their developers.
 | [CouchDB (multi containers)](https://github.com/Flink/dokku-couchdb-multi-containers)             | [flink][]             | 0.4.0+                |
 | [CouchDB](https://github.com/racehub/dokku-couchdb-plugin)                                        | [raceHub][]           | Compatible with 0.2.0 |
 | [Dokku Copy App Config Files](https://github.com/alexkruegger/dokku-app-configfiles)              | [alexkruegger][]      | Compatible with 0.3.17+ |
-| [Dokku Registry](https://github.com/agco-adm/dokku-registry)                                      | [agco-adm][]          | 0.4.0+
+| [Dokku Registry](https://github.com/agco-adm/dokku-registry)                                      | [agco-adm][]          | 0.4.0+                |
 | [Elasticsearch](https://github.com/robv/dokku-elasticsearch)                                      | [robv][]              | Not compatible with >= 0.3.0 (still uses /home/git) |
 | [Elasticsearch](https://github.com/blag/dokku-elasticsearch-plugin)<sup>1</sup>                   | [blag][]              | Compatible with 0.2.0 |
 | [Graphite/statsd](https://github.com/jlachowski/dokku-graphite-plugin)                            | [jlachowski][]        | < 0.4.0               |
@@ -267,7 +270,6 @@ The following plugins are no longer maintained by their developers.
 [calyhre]: https://github.com/calyhre
 [cameron-martin]: https://github.com/cameron-martin
 [candlewaster]: https://notabug.org/candlewaster
-[cedricziel]: https://github.com/cedricziel
 [cef]: https://github.com/cef
 [cheif]: https://github.com/cheif
 [cjblomqvist]: https://github.com/cjblomqvist
@@ -336,3 +338,4 @@ The following plugins are no longer maintained by their developers.
 [ollej]: https://github.com/ollej
 [ignisda]: https://github.com/IgnisDa
 [meteozond]: https://github.com/meteozond
+[libredb]: https://github.com/libredb

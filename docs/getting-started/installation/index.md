@@ -8,7 +8,7 @@ Dokku is an extensible, open source Platform as a Service that runs on a single 
 
 To start using Dokku, you'll need a system that meets the following minimum requirements:
 
-- Operating Systems: [Ubuntu 22.04/24.04](https://www.ubuntu.com/download) or [Debian 11+ x64](https://www.debian.org/distrib/)
+- Operating Systems: [Ubuntu 22.04/24.04/26.04](https://www.ubuntu.com/download) or [Debian 11+ x64](https://www.debian.org/distrib/)
 - Supported Architectures: `AMD64` (`x86_64`) and `arm64` (`armv8`)
 - Minimum Memory:
     - Docker Scheduler: 1GB of system memory, or [add swap memory](/docs/getting-started/advanced-installation.md#vms-with-less-than-1-gb-of-memory)
@@ -23,7 +23,7 @@ Please see the [dns documentation](/docs/networking/dns.md) and [domains documen
 
 ## Installing the latest stable version
 
-This is the simple method of installing Dokku. For alternative methods of installation, see the [advanced install guide](/docs/getting-started/advanced-installation.md#configuring).
+This is the simple method of installing Dokku. For alternative methods of installation, see the [advanced install guide](/docs/getting-started/advanced-installation.md#installing-via-other-methods).
 
 ### 1. Install Dokku
 
@@ -31,15 +31,17 @@ To install the latest stable version of Dokku, you can run the following shell c
 
 ```shell
 # for debian systems, installs Dokku via apt-get
-wget -NP . https://dokku.com/install/v0.38.28/bootstrap.sh
-sudo DOKKU_TAG=v0.38.28 bash bootstrap.sh
+wget -NP . https://dokku.com/install/v0.38.34/bootstrap.sh
+sudo DOKKU_TAG=v0.38.34 bash bootstrap.sh
 ```
 
 The installation process takes about 5-10 minutes, depending upon internet connection speed.
 
 ### 2. Setup SSH key and Virtualhost Settings
 
-Once the installation is complete, you should configure an ssh key and set your global domain.
+The bootstrap script adds the keys in root's `~/.ssh/authorized_keys` and sets the server's IP as the global domain when those are not already configured. The summary at the end of the install shows what was set. See the [advanced installation documentation](/docs/getting-started/advanced-installation.md#automatic-configuration-by-the-bootstrap-script) for details.
+
+Otherwise, once the installation is complete, you should configure an ssh key and set your global domain.
 
 ```shell
 # usually your key is already available under the current user's `~/.ssh/authorized_keys` file

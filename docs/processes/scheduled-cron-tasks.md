@@ -40,7 +40,6 @@ A cron task takes the following properties:
 - `schedule`: A [cron-compatible](https://en.wikipedia.org/wiki/Cron#Overview) scheduling definition upon which to run the command. Seconds are generally not supported.
 - `concurrency_policy`: A string (default: `allow`), that controls whether the cron task can be run concurrently with another invocation of itself. Valid options are `allow` (allow concurrency), `forbid` (exit the new cron task if there is an existing one), `replace` (delete any existing cron task and start the new one).
 
-
 Zero or more cron tasks can be specified per app. Cron tasks are validated after the build artifact is created but before the app is deployed, and the cron schedule is updated during the post-deploy phase.
 
 Cron tasks can run for a maximum of 24 hours, after which they are reaped from the system. The `docker-local` scheduler reaps expired tasks via the `dokku ps:retire` pass that runs every 5 minutes, so a task may overrun its deadline by up to 5 minutes. The `k3s` scheduler enforces the deadline directly through the job's `activeDeadlineSeconds`.
@@ -56,6 +55,7 @@ When running scheduled cron tasks, there are a few items to be aware of:
 - At this time, only the `PATH` and `SHELL` environment variables are specified in the cron template.
     - A `MAILTO` value can be set via the `cron:set` command.
     - A `MAILFROM` value can be set via the `cron:set` command.
+    - Tasks injected by plugins via the [`cron-entries` trigger](/docs/development/plugin-triggers.md#cron-entries) may set a `MAILTO` value of their own, which is used for that task instead of the global value. `MAILTO` is reset after the task to the global value, or to the `dokku` user when no global value is set, so no other task is mailed to that address. The output of such a task is mailed to that address as well as appended to the task's log file.
 - Each scheduled task is executed within a one-off `run` container, and thus inherit any docker-options specified for `run` containers. Resources are never shared between scheduled tasks.
 - Scheduled cron tasks are supported on a per-scheduler basis. Schedulers that use the host crontab - such as `docker-local` - have their `app.json` cron tasks written to the `dokku` user crontab, while schedulers that manage their own cron backend - such as `k3s` - schedule them natively.
 - Tasks for _all_ apps managed by a host-crontab scheduler such as `docker-local` are written to a single crontab file owned by the `dokku` user. The `dokku` user's crontab should be considered reserved for this purpose.
@@ -338,7 +338,7 @@ SHELL=/bin/bash
 > The `Report flags` column lists the CLI argument names accepted by `cron:report`. The JSON keys emitted by `cron:report --format json` are the same names with the leading `--cron-` stripped (e.g. `global-mailto`, `computed-mailto`, `maintenance`). Legacy keys with the `cron-` prefix (e.g. `cron-global-mailto`) are also emitted during the 0.38.x deprecation window and will be removed in a future major release.
 
 | Property | Scope | Default | Report flags | Description |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `mailfrom` | global only | none | `--cron-global-mailfrom`, `--cron-computed-mailfrom` | `From:` address used in cron failure emails |
 | `mailto` | global only | none | `--cron-global-mailto`, `--cron-computed-mailto` | Recipient address for cron failure emails; empty disables email |
 | `maintenance` | app + global | `false` | `--cron-maintenance`, `--cron-global-maintenance`, `--cron-computed-maintenance` | When `true`, suspends all cron tasks for the app (or globally) |

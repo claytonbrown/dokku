@@ -3,6 +3,7 @@ package ps
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -26,7 +27,11 @@ func CommandInspect(appName string) error {
 }
 
 // CommandRebuild rebuilds an app from source
-func CommandRebuild(appName string, allApps bool, parallelCount int) error {
+func CommandRebuild(appName string, allApps bool, parallelCount int, noCache bool) error {
+	if noCache {
+		os.Setenv("DOKKU_BUILD_NO_CACHE", "true")
+	}
+
 	if allApps {
 		return common.RunCommandAgainstAllApps(Rebuild, "rebuild", parallelCount)
 	}
@@ -121,6 +126,9 @@ func CommandRetire(appName string) error {
 	if appName == "" {
 		scheduler = common.GetGlobalScheduler()
 	} else {
+		if err := common.VerifyAppName(appName); err != nil {
+			return err
+		}
 		scheduler = common.GetAppScheduler(appName)
 	}
 

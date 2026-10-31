@@ -123,7 +123,7 @@ At this time, the following dokku commands are used to implement a complete sche
     - triggers: post-app-clone-setup
 - `cron`: generates cron tasks for the app
     - triggers: scheduler-uses-host-cron, scheduler-cron-write
-- `deploy`: deploys app proceses and checks the status of a deploy
+- `deploy`: deploys app processes and checks the status of a deploy
     - triggers: scheduler-app-status, scheduler-deploy, scheduler-is-deployed, scheduler-logs-failed
 - `enter`: enters a running container
     - triggers: scheduler-enter
@@ -156,6 +156,6 @@ Deployment tasks are currently executed directly on the primary Dokku server.
 > The `Report flags` column lists the CLI argument names accepted by `scheduler:report`. The JSON keys emitted by `scheduler:report --format json` are the same names with the leading `--scheduler-` stripped (e.g. `selected`, `global-selected`, `computed-selected`). Legacy keys with the `scheduler-` prefix are also emitted during the 0.38.x deprecation window and will be removed in a future major release.
 
 | Property | Scope | Default | Report flags | Description |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `selected` | app + global | `docker-local` | `--scheduler-selected`, `--scheduler-global-selected`, `--scheduler-computed-selected` | Scheduler plugin used to deploy this app (`docker-local`, `k3s`, etc.) |
 | `shell` | app + global | none | `--scheduler-shell`, `--scheduler-global-shell`, `--scheduler-computed-shell` | Shell used by `enter`/`run` commands when entering a container |

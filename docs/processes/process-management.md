@@ -5,7 +5,7 @@
 
 ```
 ps:inspect <app>                                                             # Displays a sanitized version of docker inspect for an app
-ps:rebuild [--parallel count] [--all|<app>]                                  # Rebuilds an app from source
+ps:rebuild [--parallel count] [--no-cache] [--all|<app>]                     # Rebuilds an app from source
 ps:report [<app>] [<flag>]                                                   # Displays a process report for one or more apps
 ps:restart [--parallel count] [--all|<app>]  [<process-name>]                # Restart an app
 ps:restore [<app>]                                                           # Start previously running apps e.g. after reboot
@@ -57,6 +57,29 @@ Finally, the number of parallel workers may be automatically set to the number o
 ```shell
 dokku ps:rebuild --all --parallel -1
 ```
+
+#### Rebuilding without the build cache
+
+> [!IMPORTANT]
+> New as of 0.38.34
+
+An app may be rebuilt without using the build cache by specifying the `--no-cache` flag. This applies only to the triggered rebuild, and no setting is persisted for later deploys.
+
+```shell
+dokku ps:rebuild --no-cache node-js-app
+```
+
+The `--no-cache` flag may also be combined with the `--all` and `--parallel` flags.
+
+```shell
+dokku ps:rebuild --all --no-cache
+```
+
+The effect of the flag depends on the builder in use:
+
+- `dockerfile`, `nixpacks`, and `railpack`: The build is run with `--no-cache`. For the `dockerfile` builder, [BuildKit directory caches](/docs/deployment/builders/dockerfiles.md#buildkit-directory-caching) are not cleared.
+- `pack`: The build is run with `--clear-cache`.
+- `herokuish`: The build cache is purged before the build, in the same way as `repo:purge-cache`.
 
 A missing linked container will result in failure to boot apps. Services should all be started for apps being rebuilt.
 
@@ -127,7 +150,7 @@ The `ps` plugin provides a number of settings that can be used to managed deploy
 
 | Name                  | Description                                       | Global Default     |
 |-----------------------|---------------------------------------------------|--------------------|
-| `stop-timeout`        | Configurable grace period given to the `docker stop` command. If a container has not stopped by this time, a `kill -9` signal or equivalent is sent in order to force-terminate the container. Both the `ps:stop` and `apps:destroy` commands *also* respect this value. If not specified, the Docker defaults for the [`docker stop` command](https://docs.docker.com/engine/reference/commandline/stop/) will be used. | `30`             |
+| `stop-timeout`        | Configurable grace period given to the `docker stop` command. If a container has not stopped by this time, a `kill -9` signal or equivalent is sent in order to force-terminate the container. Both the `ps:stop` and `apps:destroy` commands _also_ respect this value. If not specified, the Docker defaults for the [`docker stop` command](https://docs.docker.com/engine/reference/commandline/stop/) will be used. | `30`             |
 
 All settings can be set via the `ps:set` command. Using `stop-timeout` as an example:
 
@@ -179,6 +202,12 @@ importantworker:  env QUEUE=important bundle exec rake resque:work
 
 If the app build declares an `ENTRYPOINT`, the command defined in the `Procfile` is passed as an argument to that entrypoint. This is the case for all Dockerfile-based, Docker Image, and Cloud Native Buildpack deployments.
 
+When deploying via the `docker-local` scheduler, for all builders other than Herokuish, the command is split into arguments using shell quoting rules, but is not otherwise interpreted by a shell. Environment variable references such as `$PORT` are substituted before the command is split. Single quotes, double quotes, and backslash escapes then group and escape arguments, and any other special characters are passed to the container verbatim. Shell operators such as `&&`, `|`, `;`, and redirections are not supported and will fail the deploy, and a trailing `#` comment is ignored. If shell features are required, invoke a shell explicitly:
+
+```Procfile
+web: sh -c "bin/migrate && exec bin/server --port $PORT"
+```
+
 The `web` process type holds some significance in that it is the only process type that is automatically scaled to `1` on the initial application deploy. See the [web process scaling documentation](/docs/processes/process-management.md#the-web-process) for more details around scaling individual processes.
 
 See the [Procfile location documentation](/docs/processes/process-management.md#changing-the-procfile-location) for more information on where to place your `Procfile` file.
@@ -210,7 +239,7 @@ Sometimes it may be desirable to set a different path for a given app, e.g. when
 dokku ps:set node-js-app procfile-path .dokku/Procfile
 ```
 
-The value is the path to the desired file *relative* to the base search directory, and will never be treated as absolute paths in any context. If that file does not exist within the repository, Dokku will continue the build process as if the repository has no `Procfile`.
+The value is the path to the desired file _relative_ to the base search directory, and will never be treated as absolute paths in any context. If that file does not exist within the repository, Dokku will continue the build process as if the repository has no `Procfile`.
 
 The default value may be set by passing an empty value for the option:
 
@@ -537,7 +566,7 @@ dokku ps:set node-js-app restore
 > The `Report flags` column lists the CLI argument names accepted by `ps:report`. The JSON keys emitted by `ps:report --format json` are the same names with the leading `--ps-` stripped (e.g. `procfile-path`, `global-procfile-path`, `computed-procfile-path`). Legacy keys with the `ps-` prefix (e.g. `ps-procfile-path`) are also emitted during the 0.38.x deprecation window and will be removed in a future major release.
 
 | Property | Scope | Default | Report flags | Description |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `dockerfile-start-cmd` | app only | none | `--ps-dockerfile-start-cmd`, `--ps-computed-dockerfile-start-cmd` | Override `CMD` for Dockerfile-based apps |
 | `procfile-path` | app + global | `Procfile` | `--ps-procfile-path`, `--ps-global-procfile-path`, `--ps-computed-procfile-path` | Path to the app's Procfile, relative to the build root |
 | `restart-policy` | app + global | `on-failure:10` | `--ps-restart-policy`, `--ps-global-restart-policy`, `--ps-computed-restart-policy` | Docker restart policy applied to deployed containers (`no`, `always`, `unless-stopped`, `on-failure[:max-retries]`) |
@@ -551,7 +580,7 @@ dokku ps:set node-js-app restore
 The following flags surface in `ps:report` but are not managed by `ps:set` - they are derived from the running process state:
 
 | Flag | Description |
-|---|---|
+| --- | --- |
 | `--ps-can-scale` | `false` when the app's procfile or builder forbids horizontal scaling |
 | `--deployed` | `true` after the first successful deploy |
 | `--running` | `true` while any container for the app is running |

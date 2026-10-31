@@ -91,6 +91,36 @@ EOF
   assert_output_contains "git-hook"
 }
 
+@test "(builds:report) records a ps:rebuild called with flags before the app name" {
+  run deploy_app python dokku@$DOKKU_DOMAIN:$TEST_APP convert_to_dockerfile
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku ps:rebuild --no-cache $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output_contains "builds-record" 0
+
+  run /bin/bash -c "dokku builds:report $TEST_APP --build-source"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output "ps:rebuild"
+
+  run /bin/bash -c "dokku builds:report $TEST_APP --build-status"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output "succeeded"
+
+  run /bin/bash -c "[[ ! -e $DOKKU_LIB_ROOT/data/builds/--no-cache ]]"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+}
+
 @test "(builds:list) shows an abandoned record when the PID is gone but the record is still running" {
   write_running_record "$TEST_APP" "ghost001" 99999 "git-hook"
 
@@ -99,6 +129,75 @@ EOF
   echo "status: $status"
   assert_success
   assert_output_contains "abandoned"
+}
+
+@test "(builds) [lock] a failed build releases the deploy lock and finalizes the record as failed" {
+  run deploy_app python dokku@$DOKKU_DOMAIN:$TEST_APP convert_to_dockerfile
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku builder-dockerfile:set $TEST_APP dockerfile-path fail.Dockerfile"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku ps:rebuild $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_failure
+  assert_output_contains "App build failed" -1
+
+  run /bin/bash -c "dokku apps:locked $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_failure
+
+  run /bin/bash -c "[[ ! -e $DOKKU_LIB_ROOT/data/apps/$TEST_APP/.deploy.lock ]]"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku builds:report $TEST_APP --build-status"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output "failed"
+
+  run /bin/bash -c "dokku builds:report $TEST_APP --build-exit-code"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_not_output "0"
+}
+
+@test "(builds) [lock] a deploy that exits while holding the lock finalizes its record" {
+  run /bin/bash -c "sudo -u dokku env PLUGIN_PATH=$PLUGIN_PATH PLUGIN_AVAILABLE_PATH=$PLUGIN_AVAILABLE_PATH PLUGIN_ENABLED_PATH=$PLUGIN_ENABLED_PATH PLUGIN_CORE_AVAILABLE_PATH=$PLUGIN_CORE_AVAILABLE_PATH DOKKU_LIB_ROOT=$DOKKU_LIB_ROOT DOKKU_BUILD_ID=exit0001 bash -c 'source $PLUGIN_CORE_AVAILABLE_PATH/common/functions; plugn trigger builds-record-start $TEST_APP exit0001 \$\$ git-hook; acquire_app_deploy_lock $TEST_APP exclusive; exit 3'"
+  echo "output: $output"
+  echo "status: $status"
+  assert_equal 3 "$status"
+
+  run /bin/bash -c "[[ ! -e $DOKKU_LIB_ROOT/data/apps/$TEST_APP/.deploy.lock ]]"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+
+  run /bin/bash -c "dokku apps:locked $TEST_APP"
+  echo "output: $output"
+  echo "status: $status"
+  assert_failure
+
+  run /bin/bash -c "dokku builds:info $TEST_APP exit0001 --format json | jq -r .status"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output "failed"
+
+  run /bin/bash -c "dokku builds:info $TEST_APP exit0001 --format json | jq -r .exit_code"
+  echo "output: $output"
+  echo "status: $status"
+  assert_success
+  assert_output "3"
 }
 
 @test "(builds:list --kind=build) filters to build-kind records" {

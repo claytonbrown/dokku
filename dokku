@@ -67,6 +67,9 @@ export DOKKU_GLOBAL_RUN_ARGS="--label=org.label-schema.schema-version=1.0 --labe
 
 source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 
+# the original argv is kept so the re-exec as the dokku user can replay it verbatim
+# and let the child re-parse the global flags for itself. parse_args and the
+# flag-stripping loop below must therefore stay pure functions of argv.
 parse_args "$@"
 args=("$@")
 skip_arg=false
@@ -91,7 +94,9 @@ if [[ $(id -un) != "dokku" ]]; then
   if [[ ! $1 =~ plugin:* ]] && [[ $1 != "ssh-keys:add" ]] && [[ $1 != "ssh-keys:remove" ]] && [[ $1 != "scheduler-k3s:initialize" ]] && [[ $1 != "scheduler-k3s:uninstall" ]]; then
     unset DOKKU_PID TMP TMPDIR TEMP TEMPDIR
     export SSH_USER=$(id -un)
-    sudo -u dokku -E -H "$0" "$@"
+    read -ra preserved_env_names <<<"$(fn-cli-preserved-env-names)"
+    preserve_env_flag="$(fn-sudo-preserve-env-flag "${preserved_env_names[@]}")"
+    sudo -u dokku "$preserve_env_flag" -H "$0" "${args[@]}"
     exit $?
   fi
 fi
@@ -113,7 +118,7 @@ if [[ -n "$SSH_ORIGINAL_COMMAND" ]]; then
     exit_code=$?
     set +f
   else
-    readarray -t -O "${#ssh_arg_array[@]}" ssh_arg_array < <(printf '%s' "$SSH_ORIGINAL_COMMAND" | xargs -n 1)
+    readarray -d '' -O "${#ssh_arg_array[@]}" ssh_arg_array < <(printf '%s' "$SSH_ORIGINAL_COMMAND" | xargs -r printf '%s\0')
     set -f
     $0 "${ssh_arg_array[@]}"
     exit_code=$?
@@ -189,7 +194,7 @@ execute_dokku_cmd() {
   fi
 
   if [[ "$PLUGIN_NAME" == "git-hook" ]] || [[ "$PLUGIN_NAME" == "ps:rebuild" ]] || [[ "$PLUGIN_NAME" == "ps:restart" ]]; then
-    dokku_setup_build_capture "$2" "$PLUGIN_NAME"
+    dokku_setup_build_capture "$(fn-build-capture-app-name "$@")" "$PLUGIN_NAME"
   fi
 
   if [[ -x $PLUGIN_ENABLED_PATH/$PLUGIN_NAME/subcommands/default ]]; then

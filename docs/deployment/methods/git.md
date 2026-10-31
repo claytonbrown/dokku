@@ -170,6 +170,8 @@ By default, when running `git:sync` with a git branch reference, Dokku will auto
 dokku git:sync --skip-deploy-branch node-js-app https://github.com/heroku/node-js-getting-started.git main
 ```
 
+The `git:sync` command holds the app's deploy lock while fetching, and will fail if a deploy is already in progress or the app has been locked via `apps:lock`. When the fetched code changes the repository or a build is triggered, the `source-image` property set by [image deploys](/docs/deployment/methods/image.md) is cleared. As the synced code is kept even when a build fails, the property is not restored on build failure.
+
 ### Initializing from private repositories
 
 > [!IMPORTANT]
@@ -337,7 +339,7 @@ The `--format` flag cannot be combined with an info flag.
 ### Settable properties
 
 | Property | Scope | Default | Report flags | Description |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `archive-max-files` | app + global | none | `--git-global-archive-max-files`, `--git-computed-archive-max-files` | Maximum number of files allowed in an uploaded archive deploy |
 | `archive-max-size` | app + global | none | `--git-global-archive-max-size`, `--git-computed-archive-max-size` | Maximum total size of an uploaded archive deploy |
 | `deploy-branch` | app + global | `master` | `--git-deploy-branch`, `--git-global-deploy-branch`, `--git-computed-deploy-branch` | Branch name pushed by the git remote that triggers a deploy |
@@ -350,6 +352,6 @@ The `--format` flag cannot be combined with an info flag.
 The following flags surface in `git:report` but are not managed by `git:set` - they are derived from repository state:
 
 | Flag | Description |
-|---|---|
+| --- | --- |
 | `--git-sha` | HEAD commit SHA of the app's git repo |
 | `--git-last-updated-at` | UNIX timestamp of the last write to the deploy branch ref |

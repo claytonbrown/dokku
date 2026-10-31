@@ -67,7 +67,7 @@ Sometimes it may be desirable to set a different path for a given app, e.g. when
 dokku app-json:set node-js-app appjson-path .dokku/app.json
 ```
 
-The value is the path to the desired file *relative* to the base search directory, and will never be treated as absolute paths in any context. If that file does not exist within the repository, Dokku will continue the build process as if the repository has no `app.json`.
+The value is the path to the desired file _relative_ to the base search directory, and will never be treated as absolute paths in any context. If that file does not exist within the repository, Dokku will continue the build process as if the repository has no `app.json`.
 
 The default value may be set by passing an empty value for the option:
 
@@ -142,7 +142,7 @@ app2.json
 
 #### `app.json` deployment tasks
 
-Dokku provides limited support for the `app.json` manifest from Heroku (documentation available [here](https://devcenter.heroku.com/articles/app-json-schema)). The keys available for use with Deployment Tasks are:
+Dokku provides limited support for the `app.json` manifest from Heroku (see the [app.json schema documentation](https://devcenter.heroku.com/articles/app-json-schema)). The keys available for use with Deployment Tasks are:
 
 - `scripts.dokku.predeploy`: This is run _after_ an app's docker image is built, but _before_ any containers are scheduled. Changes made to your image are committed at this phase.
 - `scripts.dokku.postdeploy`: This is run _after_ an app's containers are scheduled. Changes made to your image are _not_ committed at this phase.

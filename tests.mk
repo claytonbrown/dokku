@@ -182,12 +182,14 @@ go-tests:
 	@$(MAKE) go-test-plugin PLUGIN_NAME=common
 	@$(MAKE) go-test-plugin PLUGIN_NAME=config
 	@$(MAKE) go-test-plugin PLUGIN_NAME=cron
+	@$(MAKE) go-test-plugin PLUGIN_NAME=datastore
 	@$(MAKE) go-test-plugin PLUGIN_NAME=docker-options
 	@$(MAKE) go-test-plugin PLUGIN_NAME=logs
 	@$(MAKE) go-test-plugin PLUGIN_NAME=network
 	@$(MAKE) go-test-plugin PLUGIN_NAME=nginx-vhosts
 	@$(MAKE) go-test-plugin PLUGIN_NAME=ps
 	@$(MAKE) go-test-plugin PLUGIN_NAME=registry
+	@$(MAKE) go-test-plugin PLUGIN_NAME=resource
 	@$(MAKE) go-test-plugin PLUGIN_NAME=buildpacks
 	@$(MAKE) go-test-plugin PLUGIN_NAME=scheduler-k3s
 	@$(MAKE) go-test-plugin PLUGIN_NAME=storage
@@ -336,7 +338,11 @@ tests-ci-retry-failed:
 	tar xzf /tmp/bats-retry.tgz -C /usr/local/bin
 	bats-retry --execute test-results/bats
 
-test-ci-docker: setup-docker-deploy-tests deploy-test-checks-root deploy-test-config deploy-test-multi deploy-test-go-fail-predeploy deploy-test-go-fail-postdeploy test-ci-binaries
+deploy-test-storage-lib-host-root:
+	@echo deploy-test-storage-lib-host-root
+	cd tests/docker && bats storage.bats
+
+test-ci-docker: setup-docker-deploy-tests deploy-test-checks-root deploy-test-config deploy-test-multi deploy-test-go-fail-predeploy deploy-test-go-fail-postdeploy deploy-test-storage-lib-host-root test-ci-binaries
 
 generate-ssl-tars: generate-ssl-tar generate-ssl-sans-tar generate-ssl-wildcard-tar
 

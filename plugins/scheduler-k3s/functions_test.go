@@ -433,6 +433,38 @@ func TestValidateCertIssuerName(t *testing.T) {
 	}
 }
 
+func TestGetHelmChart(t *testing.T) {
+	for _, chart := range HelmCharts {
+		got, err := getHelmChart(chart.ReleaseName)
+		if err != nil {
+			t.Fatalf("getHelmChart(%q) unexpected error: %v", chart.ReleaseName, err)
+		}
+		if got.ReleaseName != chart.ReleaseName {
+			t.Fatalf("getHelmChart(%q) returned chart %q", chart.ReleaseName, got.ReleaseName)
+		}
+	}
+
+	for _, name := range []string{"", "not-a-chart", "Traefik"} {
+		_, err := getHelmChart(name)
+		if err == nil {
+			t.Fatalf("getHelmChart(%q) expected an error", name)
+		}
+		if !strings.HasPrefix(err.Error(), fmt.Sprintf("Invalid chart name %q, valid charts: ", name)) {
+			t.Fatalf("getHelmChart(%q) unexpected error: %v", name, err)
+		}
+
+		listed := strings.Split(strings.SplitN(err.Error(), "valid charts: ", 2)[1], ", ")
+		if len(listed) != len(HelmCharts) {
+			t.Fatalf("getHelmChart(%q) listed %d charts, want %d", name, len(listed), len(HelmCharts))
+		}
+		for i := 1; i < len(listed); i++ {
+			if listed[i-1] > listed[i] {
+				t.Fatalf("getHelmChart(%q) listed charts out of order: %v", name, listed)
+			}
+		}
+	}
+}
+
 func TestValidateLetsencryptServer(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -482,6 +514,47 @@ func TestDomainSlug(t *testing.T) {
 			t.Parallel()
 			if got := domainSlug(tc.domain); got != tc.want {
 				t.Errorf("domainSlug(%q) = %q, want %q", tc.domain, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestParseMemoryQuantity(t *testing.T) {
+	cases := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{name: "unitless value defaults to megabytes", input: "512", want: "512Mi"},
+		{name: "lowercase megabytes are not millibytes", input: "256m", want: "256Mi"},
+		{name: "uppercase gigabytes are binary", input: "1G", want: "1Gi"},
+		{name: "lowercase gigabytes", input: "1g", want: "1Gi"},
+		{name: "kubernetes binary unit", input: "1Gi", want: "1Gi"},
+		{name: "two letter unit", input: "512MB", want: "512Mi"},
+		{name: "decimal value", input: "1.5g", want: "1536Mi"},
+		{name: "bytes", input: "100b", want: "100"},
+		{name: "zero", input: "0Mi", want: "0"},
+		{name: "invalid unit", input: "1x", wantErr: true},
+		{name: "kubernetes exponent", input: "1e9", wantErr: true},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := parseMemoryQuantity(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("parseMemoryQuantity(%q) = %q, want error", tc.input, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseMemoryQuantity(%q) unexpected error: %v", tc.input, err)
+			}
+			if got != tc.want {
+				t.Errorf("parseMemoryQuantity(%q) = %q, want %q", tc.input, got, tc.want)
 			}
 		})
 	}

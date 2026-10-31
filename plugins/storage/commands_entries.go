@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/dokku/dokku/plugins/common"
+	"github.com/mattn/go-isatty"
 )
 
 // CommandCreateInput captures the flags accepted by storage:create.
@@ -273,32 +274,27 @@ func CommandSet(input CommandSetInput) error {
 	if !EntryExists(input.Name) {
 		return fmt.Errorf("storage entry %q does not exist", input.Name)
 	}
-	entry, err := LoadEntry(input.Name)
-	if err != nil {
-		return err
-	}
-
 	touchesDirectory := false
-	for _, change := range input.Changes {
-		if err := applyPropertyChange(entry, change); err != nil {
-			return err
+	entry, err := UpdateEntry(input.Name, func(entry *Entry) error {
+		for _, change := range input.Changes {
+			if err := applyPropertyChange(entry, change); err != nil {
+				return err
+			}
+			if change.Property == "chown" || change.Property == "mode" {
+				touchesDirectory = true
+			}
 		}
-		if change.Property == "chown" || change.Property == "mode" {
-			touchesDirectory = true
+
+		if input.Annotations != nil {
+			entry.Annotations = input.Annotations
 		}
-	}
+		if input.Labels != nil {
+			entry.Labels = input.Labels
+		}
 
-	if input.Annotations != nil {
-		entry.Annotations = input.Annotations
-	}
-	if input.Labels != nil {
-		entry.Labels = input.Labels
-	}
-
-	if err := entry.Validate(); err != nil {
-		return err
-	}
-	if err := SaveEntry(entry); err != nil {
+		return entry.Validate()
+	})
+	if err != nil {
 		return err
 	}
 	// Only converge the directory when the caller actually asked to change
@@ -422,14 +418,16 @@ func CommandExec(input CommandExecInput) error {
 
 // stdinModes inspects os.Stdin to decide whether docker / the k8s exec
 // SDK should request an interactive session and a TTY.
+//
+// TTY detection uses isatty rather than ModeCharDevice: /dev/null is a
+// character device but not a terminal, and treating it as a TTY makes
+// docker run -it fail with "cannot attach stdin to a TTY-enabled
+// container because stdin is not a terminal" (e.g. docker exec without
+// -t, as in CI).
 func stdinModes() (interactive bool, tty bool) {
+	tty = isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
 	fi, err := os.Stdin.Stat()
-	if err != nil || fi == nil {
-		return false, false
-	}
-	mode := fi.Mode()
-	tty = mode&os.ModeCharDevice != 0
-	hasStdinData := mode&os.ModeNamedPipe != 0
+	hasStdinData := err == nil && fi != nil && fi.Mode()&os.ModeNamedPipe != 0
 	interactive = tty || hasStdinData
 	return interactive, tty
 }

@@ -688,8 +688,10 @@ APP="$1"; PROPERTY="$2"
 ### `cron-entries`
 
 - Description: Allows injecting cron tasks into the written out scheduled cron task list. Each entry is newline delimited, and individual tasks come in the form `$SCHEDULE;$FULL_COMMAND;$ARBITRARY_DATA`. Individual implementations of cron writing can decide whether and how to include these cron tasks. The `ARBITRARY_DATA` includes the log file path for the basic `docker-local` cron implementation.
-- Invoked by:
-- Arguments: `$DOKKU_SCHEDULER`
+
+    When `$CRON_ENTRY_FORMAT` is `json`, each entry may instead be printed as a json object on its own line, with the keys `schedule`, `command`, `log-file` and `mailto`. Only `schedule` and `command` are required. A task with a `mailto` value is written to the crontab after a `MAILTO` line of its own and followed by one resetting `MAILTO` to the global value, or to the `dokku` user when no global value is set, so the value only applies to that task. Its output is mailed to that address in addition to being appended to its `log-file`. Json entries and `;` delimited entries may be printed together. Older versions of Dokku do not pass `$CRON_ENTRY_FORMAT`, and fail to write the crontab if a json entry is printed, so a json entry should only be printed when the argument is `json`.
+- Invoked by: `dokku cron:list --global`, and when the `dokku` user crontab is written
+- Arguments: `$DOKKU_SCHEDULER $CRON_ENTRY_FORMAT`
 - Example:
 
 ```shell
@@ -699,8 +701,13 @@ set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
 source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
 
 DOKKU_SCHEDULER="$1"
+CRON_ENTRY_FORMAT="$2"
 
-# TODO
+if [[ "$CRON_ENTRY_FORMAT" == "json" ]]; then
+  echo '{"schedule":"@daily","command":"/usr/local/bin/some-task","log-file":"/var/log/dokku/some-task.log","mailto":"ops@example.com"}'
+else
+  echo "@daily;/usr/local/bin/some-task;/var/log/dokku/some-task.log"
+fi
 ```
 
 ### `dependencies`
@@ -875,7 +882,7 @@ APP="$1"; IMAGE_SOURCE_TYPE="$2"
 
 ### `docker-args-process-deploy`
 
-- Description: emits docker arguments scoped to a specific Procfile process type. The `docker-options` plugin implements this trigger to surface options registered via `docker-options:add --process <PROC>`. `$PROC_TYPE` may be empty (or set to the magic `_default_` value) to signify default-scope docker deploy options.
+- Description: emits docker arguments scoped to a specific Procfile process type. The `docker-options` plugin implements this trigger to surface options registered via `docker-options:add --process <PROC>`, and the `storage` plugin implements it to emit the `-v` flags for mounts made with `storage:mount --process-type <PROC>`. `$PROC_TYPE` may be empty (or set to the magic `_default_` value) to signify default-scope docker deploy options. Note that the two plugins split the work differently: `docker-options` emits only its process-specific scope here and its default scope through `docker-args-deploy`, while `storage` emits both scopes here and does not implement `docker-args-deploy` at all. A handler that exits non-zero aborts the deploy, including the ephemeral containers that run `app.json` deploy tasks, so a handler that has nothing to contribute for an app should emit nothing and exit zero rather than fail.
 - Invoked by: `dokku deploy`
 - Arguments: `$APP $IMAGE_SOURCE_TYPE $IMAGE_TAG [$PROC_TYPE $CONTAINER_INDEX]`
 - Example:
@@ -2472,6 +2479,22 @@ plugn trigger receive-app $APP $newrev
 - Description: Triggers a release of the image tag and a subsequent deploy
 - Invoked by:
 - Arguments: `$APP $IMAGE_TAG`
+- Example:
+
+```shell
+#!/usr/bin/env bash
+
+set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+APP="$1";
+
+# TODO
+```
+
+### `repo-purge-cache`
+
+- Description: Deletes the contents of the build cache stored in the repository for an app
+- Invoked by: `builder-herokuish` when rebuilding with `ps:rebuild --no-cache`
+- Arguments: `$APP`
 - Example:
 
 ```shell

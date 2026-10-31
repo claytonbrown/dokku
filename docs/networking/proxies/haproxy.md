@@ -185,6 +185,8 @@ dokku haproxy:set --global letsencrypt-email automated@dokku.sh
 
 After enabling, the Haproxy container will need to be restarted and apps will need to be rebuilt. All http requests will then be redirected to https.
 
+Certificates are requested over http-01 on port 80, so each domain must resolve to the server. They are kept in `/var/lib/dokku/data/haproxy` and renewed automatically.
+
 #### Customizing the letsencrypt server
 
 The letsencrypt integration is set to the production letsencrypt server by default. To change this, set the `letsencrypt-server` property with the `--global` flag:
@@ -252,7 +254,7 @@ dokku haproxy:report node-js-app --haproxy-computed-image
 All haproxy properties are global only. Set with `haproxy:set --global <property> <value>`.
 
 | Property | Scope | Default | Report flags | Description |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `image` | global only | _parsed from `plugins/haproxy-vhosts/Dockerfile`_ | `--haproxy-global-image`, `--haproxy-computed-image` | Docker image used to run the Haproxy container |
 | `letsencrypt-email` | global only | none | `--haproxy-global-letsencrypt-email`, `--haproxy-computed-letsencrypt-email` | Contact email enabling letsencrypt; empty disables https issuance |
 | `letsencrypt-server` | global only | `https://acme-v02.api.letsencrypt.org/directory` | `--haproxy-global-letsencrypt-server`, `--haproxy-computed-letsencrypt-server` | ACME directory used when requesting certificates |

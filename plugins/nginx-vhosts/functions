@@ -37,7 +37,7 @@ validate_nginx() {
     verify_app_name "$APP"
     nginx_vhosts_validate_single_func "$APP" "$FLAG"
   else
-    for app in $(dokku_apps "false"); do
+    for app in $(dokku_apps); do
       nginx_vhosts_validate_single_func "$app" "$FLAG"
     done
   fi
@@ -282,6 +282,7 @@ fn-nginx-vhosts-render-template() {
   local CLIENT_MAX_BODY_SIZE="$(fn-nginx-computed-client-max-body-size "$APP")"
   local KEEPALIVE_TIMEOUT="$(fn-nginx-computed-keepalive-timeout "$APP")"
   local LINGERING_TIMEOUT="$(fn-nginx-computed-lingering-timeout "$APP")"
+  local PROXY_HTTP_VERSION="$(fn-nginx-computed-proxy-http-version "$APP")"
   local PROXY_CONNECT_TIMEOUT="$(fn-nginx-computed-proxy-connect-timeout "$APP")"
   local PROXY_READ_TIMEOUT="$(fn-nginx-computed-proxy-read-timeout "$APP")"
   local PROXY_SEND_TIMEOUT="$(fn-nginx-computed-proxy-send-timeout "$APP")"
@@ -334,6 +335,7 @@ fn-nginx-vhosts-render-template() {
     CLIENT_MAX_BODY_SIZE="$CLIENT_MAX_BODY_SIZE"
     KEEPALIVE_TIMEOUT="$KEEPALIVE_TIMEOUT"
     LINGERING_TIMEOUT="$LINGERING_TIMEOUT"
+    PROXY_HTTP_VERSION="$PROXY_HTTP_VERSION"
     PROXY_CONNECT_TIMEOUT="$PROXY_CONNECT_TIMEOUT"
     PROXY_READ_TIMEOUT="$PROXY_READ_TIMEOUT"
     PROXY_SEND_TIMEOUT="$PROXY_SEND_TIMEOUT"
@@ -426,6 +428,20 @@ fn-nginx-vhosts-pre-validate-custom-template() {
     sudo "$NGINX_LOCATION" -t -c "$TMP_WRAPPER" || true
     dokku_log_fail "Custom nginx.conf.sigil failed nginx -t validation"
   fi
+}
+
+fn-nginx-vhosts-install-config() {
+  declare desc="atomically replaces the nginx.conf for an app with a rendered config"
+  declare APP="$1" RENDERED_CONF="$2"
+  local STAGED_CONF
+
+  STAGED_CONF="$(mktemp "$DOKKU_ROOT/$APP/.nginx.conf.XXXXXX")"
+  if ! cat "$RENDERED_CONF" >"$STAGED_CONF"; then
+    rm -f "$STAGED_CONF"
+    return 1
+  fi
+  mv -f "$STAGED_CONF" "$DOKKU_ROOT/$APP/nginx.conf"
+  rm -f "$RENDERED_CONF"
 }
 
 nginx_build_config() {
@@ -545,7 +561,7 @@ nginx_build_config() {
 
       dokku_log_info1 "Creating $SCHEME nginx.conf"
       mkdir -p "$DOKKU_ROOT/$APP/nginx.conf.d"
-      mv "$NGINX_CONF" "$DOKKU_ROOT/$APP/nginx.conf"
+      fn-nginx-vhosts-install-config "$APP" "$NGINX_CONF"
 
       if [[ "$IS_DEPLOYED_WITH_LISTENERS" == "true" ]]; then
         fn-nginx-vhosts-manage-hsts "$APP" "$SSL_INUSE"
